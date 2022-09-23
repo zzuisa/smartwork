@@ -29,7 +29,9 @@ faq = 【FAQ】
 negative_event = 【负向事件】
 '''
 config = configparser.ConfigParser()
-config.read('D:\workspace\dev\smartwork\confs\conf.ini',encoding='UTF-8')
+config.read('./confs/conf.ini',encoding='UTF-8')
+current_year_and_month = time.strftime("%Y%m",time.localtime())
+current_year = time.strftime("%Y",time.localtime())
 EVENT = str(config['smartwork']["event"])
 TROUBLESHOOTING = str(config['smartwork']["troubleshooting"])
 PM = str(config['smartwork']["pm"])
@@ -43,10 +45,9 @@ BASE_FOLDER = str(config['smartwork']["base_folder"])
 REPORT_FOLDER = str(config['smartwork']["report_folder"])
 REPORT_PATH = '{}\\{}交付件.xlsx'.format(REPORT_FOLDER,current_year)
 SHEET_NAME='{}月'.format(int(time.strftime('%m',time.localtime())))
-HEADER = json.loads(config['smartwork']['header'])
+HEADER = json.loads(config['smartwork']["header"])
 keys_list = [EVENT,TROUBLESHOOTING,PM,ALARM,VERSION_UPDATE,VERSION_UPDATE_MEETING,ACTIVE_OPERATION_MAINTAIN,FAQ,NEGATIVE_EVENT]
-current_year_and_month = time.strftime("%Y%m",time.localtime())
-current_year = time.strftime("%Y",time.localtime())
+
 # 检索全局变量
 def retrieve_name(var):
     return [var_name for var_name, var_val in inspect.currentframe().f_globals.items() if var_val == var]
@@ -57,13 +58,6 @@ def copy_dict_from(source_dict:dict):
         for i in source_dict.keys():
             target_dict[i] = 0
     return target_dict
-
-# def init(config_path):
-#     config.read(config_path,encoding='UTF-8')
-#     config_dict = dict(config.items('smartwork'))
-#     smart_dict =  copy_dict_from(config_dict)
-#     keys_list = config_dict.values()
-#     return smart_dict,keys_list
 
 # 统计
 def do_count(smart_dict,path):
@@ -77,7 +71,6 @@ def do_count(smart_dict,path):
             if line.find(i) != -1:
                 return retrieve_name(i)[0]
     for line in file:
-        # print(1)
         res = verify(keys_list, line)
         if res:
             smart_dict[res] +=1
@@ -86,12 +79,10 @@ def do_count(smart_dict,path):
 # 导出Excel
 def to_excel(smart_dict):
     try:
-        # ws1 = wb.create_sheet("Mysheet")
         df = pd.DataFrame([smart_dict.values()], columns=[i.replace('【','').replace('】','') for i in keys_list])
         processed_data = df.values.tolist() 
         print('[processed_data] {} TO {}'.format(json.dumps(dict(zip(HEADER,one_layer(processed_data))),indent=4,ensure_ascii=False),str(REPORT_PATH)))
         export_to_excel(str(REPORT_PATH),HEADER,processed_data ,SHEET_NAME)
-        # df.to_excel('{}\\{}交付件.xlsx'.format(REPORT_FOLDER,current_year), sheet_name='{}月'.format(int(time.strftime('%m',time.localtime()))))
     except Exception as e:
         print("导出失败，不存在目录或文件正在被使用。",e)
 
@@ -104,7 +95,6 @@ def traverse():
             for report in os.listdir(dirpath):
                 if('.txt' in report):
                     file_path = '{}\\{}'.format(dirpath,report).replace('\\', '\\\\')
-                    # print(file_path)
                     smart_dict = do_count(smart_dict, file_path)
     return smart_dict
 if __name__ == '__main__':
