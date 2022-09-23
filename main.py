@@ -14,10 +14,10 @@ from util.list_util import one_layer
 awx1192780
 2022/09/15
 
-conf.ini:
 [smartwork]
+header = ["事件","故障","PM","告警","变更","变更评审","主动运维","FAQ","负向事件"]
 base_folder = D:\\workspace
-report_folder = D:\\workspace\\交付件
+report_folder = D:\workspace\交付件
 event = 【事件】
 troubleshooting = 【故障】
 pm = 【PM】
@@ -27,6 +27,7 @@ version_update_meeting = 【变更评审】
 active_operation_maintain = 【主动运维】
 faq = 【FAQ】
 negative_event = 【负向事件】
+
 '''
 config = configparser.ConfigParser()
 config.read('./confs/conf.ini',encoding='UTF-8')
@@ -81,6 +82,8 @@ def to_excel(smart_dict):
     try:
         df = pd.DataFrame([smart_dict.values()], columns=[i.replace('【','').replace('】','') for i in keys_list])
         processed_data = df.values.tolist() 
+        if os.path.exists(REPORT_FOLDER) == False:
+            os.makedirs(REPORT_FOLDER)
         print('[processed_data] {} TO {}'.format(json.dumps(dict(zip(HEADER,one_layer(processed_data))),indent=4,ensure_ascii=False),str(REPORT_PATH)))
         export_to_excel(str(REPORT_PATH),HEADER,processed_data ,SHEET_NAME)
     except Exception as e:
@@ -89,6 +92,9 @@ def to_excel(smart_dict):
 # 文件夹检索        
 def traverse():
     smart_dict = collections.defaultdict(int)
+    if os.path.exists(BASE_FOLDER) == False:
+        print('不存在此目录:{}'.format(BASE_FOLDER))
+        os._exit(0)
     for dirname in tqdm(os.listdir(BASE_FOLDER),desc='搜索中'):
         dirpath = '{}\\{}'.format(BASE_FOLDER,dirname)
         if current_year_and_month in dirname and os.path.isdir(dirpath):
