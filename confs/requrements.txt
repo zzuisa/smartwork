@@ -1,0 +1,5 @@
+openpyxl==3.0.10
+pandas==1.4.4
+et-xmlfile==1.1.0
+numpy==1.23.3
+tqdm==4.64.1
