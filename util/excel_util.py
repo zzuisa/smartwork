@@ -1,3 +1,13 @@
+# -*- encoding: utf-8 -*-
+'''
+@文件        :excel_util.py
+@说明        :
+@时间        :2022/09/15 10:26:29
+@作者        :awx1192780
+@版本        :1.0
+'''
+
+
 from openpyxl import Workbook, load_workbook
 from openpyxl.worksheet.table import Table, TableStyleInfo
 from openpyxl.styles import Alignment
@@ -41,12 +51,16 @@ def open_or_add_sheet(workbook, sheet_name):
     worksheet = workbook.active
     if sheet_name in workbook.sheetnames:
         worksheet = workbook[sheet_name]
+    elif len(workbook.sheetnames) != 0 and '月' in workbook.sheetnames[0]:
+        worksheet = workbook.create_sheet(sheet_name)
     else:
         worksheet = workbook.create_sheet(sheet_name)
         del workbook[workbook.sheetnames[0]]
     return worksheet
 
 # 执行插入数据
+
+
 def data_excel(excel_name_path, workbook, worksheet, title, data):
     datain = copy.copy(data)  # 浅拷贝
     if isinstance(datain, dict):
@@ -62,6 +76,8 @@ def data_excel(excel_name_path, workbook, worksheet, title, data):
     return worksheet
 
 # 主函数
+
+
 def export_to_excel(path, title, data, sheet_name='Default'):
     wb = open_file(path)
     ws = open_or_add_sheet(wb, sheet_name)
