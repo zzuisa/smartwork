@@ -12,6 +12,8 @@ from openpyxl import Workbook, load_workbook
 from openpyxl.worksheet.table import Table, TableStyleInfo
 from openpyxl.styles import Alignment, Font, Border, Side
 from tqdm import tqdm
+from util.common_tools import print_pro
+from base import constants
 import os
 import copy
 import time
@@ -78,14 +80,17 @@ def batch_insert_report(ws, _list, pos=[1, 1], spec_column=None, mode=0, _vertic
             # 微调格式
             if row == 1:
                 ws.cell(row=row, column=column+index).font = Font(bold=True)
-            if index == len(_list) -1 :
-                ws.cell(row=row, column=column+index).alignment = Alignment(
-                    horizontal='left', vertical='top', wrapText=True)
-            ws.cell(row=1, column=len(_list)).alignment = Alignment(
-                    horizontal='center', vertical='center', wrapText=True)
 
-            # 居中处理
-            # wrapText=True 自动换行
+            # 以下是对 spec_column 列做特殊格式处理
+            if spec_column != None:
+                if index == ord(spec_column)-65:
+                    ws.cell(row=row, column=ord(spec_column)-65+1).alignment = Alignment(
+                        horizontal='left', vertical='top', wrapText=True)
+        ws.cell(row=1, column=ord(spec_column)-65+1).alignment = Alignment(
+            horizontal='center', vertical='center', wrapText=True)
+
+        # 居中处理
+        # wrapText=True 自动换行
 
     else:
         for index, value in enumerate(_list):
@@ -99,11 +104,14 @@ def batch_insert_report(ws, _list, pos=[1, 1], spec_column=None, mode=0, _vertic
 
 def smart_width_and_height(ws, _row, _list: list):
     for _index, _ in enumerate(_list):
-        ws.column_dimensions[chr(_index+65).upper()].width = 25
+        ws.column_dimensions[chr(_index+65).upper()].width = 12.5
     # 根据content和desc中的内容调整单元格高度
-    tar_height = 28 + 4 * (int(len(_list[0])/9)+1) + \
-        ''.join(map(str, _list)).count('\n') * 15
+    tar_height = 24 + 2 * (int(len(_list[0])/9)+1) + \
+        ''.join(map(str, _list)).count('\n') * 12
     ws.row_dimensions[_row].height = tar_height
+    ws.row_dimensions[1].height = 30
+
+# 设置过滤器和排序字段（有未解决bug，暂不可用）
 
 
 def set_filter_and_sort(ws, _all_list: list):
@@ -126,43 +134,68 @@ def open_file(excel_name_path):
 # 检查是否存在当前sheet_name, 若不存在则新建并以此命名第一个sheet
 
 
-def open_or_add_sheet(workbook, sheet_name):
+def open_or_add_sheet(workbook, sheet_name, template_path=None, template_sheet_name=None):
     worksheet = workbook.active
     if sheet_name in workbook.sheetnames:
         worksheet = workbook[sheet_name]
     elif len(workbook.sheetnames) != 0 and '月' in workbook.sheetnames[0]:
         worksheet = workbook.create_sheet(sheet_name)
     else:
+        if template_path and template_sheet_name not in workbook.sheetnames:
+            cp_sheet = copy_sheet_from(template_path, template_sheet_name)
+            cp_sheet._parent = workbook
+            workbook._add_sheet(cp_sheet)
         worksheet = workbook.create_sheet(sheet_name)
-        del workbook[workbook.sheetnames[0]]
+        if workbook.sheetnames[0] != template_sheet_name:
+            del workbook[workbook.sheetnames[0]]
     return worksheet
 
 # 执行插入数据
 
 
-def data_excel(excel_name_path, workbook, worksheet, title, data, data_type="count", spec_column=None):
+def copy_sheet_from(path, sheet_name):
+    wb = open_file(path)
+    if sheet_name in wb.sheetnames:
+        worksheet = wb[sheet_name]
+        worksheet.title = sheet_name
+        return worksheet
+    else:
+        print_pro('不存在此工作簿!', constants.ERROR_PRINT)
+
+
+# 最终处理，导出excel
+
+def data_excel(excel_name_path, workbook, worksheet, title, data, data_type="count", template_path=None, template_sheet_name=None, spec_column=None):
+    if template_sheet_name and template_sheet_name not in workbook.sheetnames:
+        cp_sheet = copy_sheet_from(template_path, template_sheet_name)
+        cp_sheet._parent = workbook
+        workbook._add_sheet(cp_sheet)
     datain = copy.copy(data)  # 浅拷贝
     if isinstance(datain, dict):
         _, values = zip(*datain.items())
     if isinstance(datain, list):
         values = datain
     value_normal = values
+    # 如果data_type 是 'count' 则表示计数——统计本月各类事项处理个数，生成统计表
+    # 反之 (data_type 是'report') 则表示导出具体交付件，和详情，生成报告表。
     worksheet = batch_insert(worksheet, title, [1, 1], spec_column) if data_type == 'count' else batch_insert_report(
         worksheet, title, [1, 1], spec_column)
     for index, value in enumerate(value_normal):
         worksheet = batch_insert(worksheet, value, [
                                  2+index, 1], spec_column) if data_type == 'count' else batch_insert_report(worksheet, value, [2+index, 1], spec_column)
+
     # 暂无法使用filter和sort
     # set_filter_and_sort(worksheet, value_normal)
-    b = workbook.save(excel_name_path)
+    workbook.save(excel_name_path)
     workbook.close()
     return worksheet
 
 # 主函数
 
 
-def export_to_excel(path, title, data, sheet_name='Default', data_type="count", spec_column=None):
+def export_to_excel(path, title, data, sheet_name='Default', data_type="count", template_path=None, template_sheet_name=None, spec_column=None):
     wb = open_file(path)
-    ws = open_or_add_sheet(wb, sheet_name)
+    ws = open_or_add_sheet(wb, sheet_name, template_path=template_path,
+                           template_sheet_name=template_sheet_name)
     data_excel(path, wb, ws, title, data,
                data_type=data_type, spec_column=spec_column)
