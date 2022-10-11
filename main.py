@@ -28,8 +28,8 @@ from util.list_util import one_layer
 config = configparser.ConfigParser()
 config.read('./confs/conf.ini', encoding='UTF-8')
 current_year_and_month = time.strftime("%Y%m", time.localtime())
-# 手动修改：
-current_year_and_month = "202211"
+# 手动修改：%Y%m
+current_year_and_month = "202209"
 #####
 current_year = current_year_and_month[:-2]
 EVENT = str(config['smartwork']["event"])
@@ -132,30 +132,32 @@ def do_count(smart_dict, report_dict, path):
                                           ISSUES[str(filtered_list[4]).lower()]]
                 # 记录当前内容
                 if_record = True
-                if len(descs) != 0:
+                if len(descs) != 0 or (len(descs) == 0 and _cur_title!=''):
                     _contents.append(descs)
                 descs = []
             elif re.match('\s?\d{1,2}\.', line) != None and type_group == None:
                 # 如果是 1. xxxx 的形式，不记录当前内容
                 if_record = False
-                # if len(descs) != 0:
-                    # _contents.append(descs)
-                # descs = []
+                if len(descs) != 0:
+                    print_pro(descs,constants.WARN_PRINT)
+                    _contents.append(descs)
+                descs = []
             else:
                 if comment and _cur_title!='':
-                    _report_dict[_cur_title][10] = comment.group(1)
+                    _report_dict[_cur_title][10] += comment.group(1)
                 if if_record and _index != _len-1 and not line.strip().startswith('**'):
-                    descs.append(re.sub('【.*】', '', line.replace('\t', '').replace('- ', "")))
+                    descs.append(re.sub('【.*】', '', line.replace('\t', '').replace('-', "").strip()))
             if res:
                 smart_dict[res] += 1
     if len(descs) != 0:
         _contents.append(descs)
-    if len(_contents) < len(_report_dict):
-        _contents.extend([[] for i in range(len(_report_dict)-len(_contents))])
+    # if len(_contents) < len(_report_dict):
+    #     _contents.extend([[] for i in range(len(_report_dict)-len(_contents))])
         
     # 为每一条记录插入详情(根因分析)列
     for _index, item in enumerate(_report_dict):
-        _report_dict[item].insert(8, '{}'.format(''.join(_contents[_index])))
+        print(_report_dict[item])
+        _report_dict[item].insert(8, '{}'.format(''.join(_contents[_index+1])))
     
     # for k, v in _report_dict.items():
         # v.insert(7, k)
@@ -217,8 +219,8 @@ def traverse():
 
 if __name__ == '__main__':
     smart_dict, res_dict = traverse()
-    to_excel(smart_dict, template_path='{}/{}.xlsx'.format(TEMPLATE_FOLDER, TEMPLATE_SHEET_NAME),
-             template_sheet_name=TEMPLATE_SHEET_NAME,)
+    # to_excel(smart_dict, template_path='{}/{}.xlsx'.format(TEMPLATE_FOLDER, TEMPLATE_SHEET_NAME),
+            #  template_sheet_name=TEMPLATE_SHEET_NAME,)
     # spec_column 代表[根因分析]列的列标，设置后，会自动根据行数调整单元格宽高。
     to_report_excel(res_dict, template_path='{}/{}.xlsx'.format(TEMPLATE_FOLDER, TEMPLATE_SHEET_NAME),
                     template_sheet_name=TEMPLATE_SHEET_NAME, spec_column="I")
