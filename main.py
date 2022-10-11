@@ -29,7 +29,7 @@ config = configparser.ConfigParser()
 config.read('./confs/conf.ini', encoding='UTF-8')
 current_year_and_month = time.strftime("%Y%m", time.localtime())
 # 手动修改：
-# current_year_and_month = "202211"
+current_year_and_month = "202211"
 #####
 current_year = current_year_and_month[:-2]
 EVENT = str(config['smartwork']["event"])
@@ -98,18 +98,25 @@ def do_count(smart_dict, report_dict, path):
     lines = _file.readlines()
     _len = len(lines)
     _report_dict = {}
+    _cur_title = ''
     for _index, line in enumerate(lines):
         _list = []
         # 问题分类#外部单号#业务系统#应用模块#问题大类
         filtered_str = re.sub(
-            r'.*【(\w*)-?(\w*)】【BS[:：]?([\w\s?]*)\[?(\w*)-?(\w*)\]?】.*', r'\1#\2#\3#\4#\5', line).strip()
+            r'.*【([\w、]*)-?(\w*)】【BS[:：]?([\w\s?]*)\[?(\w*)-?(\w*)\]?】(.*)', r'\1#\2#\3#\4#\5#\6', line).strip()
         filtered_list = filtered_str.split('#')
+        comment = re.search(r'^\*\*[\s]*(.*)', line.strip())
         res = verify(keys_list, filtered_str)
         _content = re.sub(r'\d\.?(.*】)?(.*\w)[\.:：。]?', r'\2', line).strip()
         type_group = re.search('【(.*)】', line)
-        if re.sub('\d{1,2}\.', '', line).strip() != '':
-            if re.match('\s?\d{1,2}\.', line) != None and type_group != None:
+        if len(filtered_list)==6 and filtered_list[5]=='':
+            continue
+        # 判断当前读取的行不是1. 2. 等空行
+        if re.sub('\d{1,2}\.', '', line).strip() != '' :
+            # 判断当前读取的行是否是标题行。
+            if re.match('\s?\d{1,2}\.', line) != None and type_group != None and (len(filtered_list)==6 and filtered_list[5]!=''):
                 _type = type_group.group(1)
+                _cur_title = _content
                 # ["外部单号","业务系统","应用模块","问题发现时间","问题处理时长","状态","问题分类","问题描述","根因分析","国家","责任人","备注","问题大类"]
                 _report_dict[_content] = [filtered_list[1],
                                           filtered_list[2],
@@ -118,6 +125,7 @@ def do_count(smart_dict, report_dict, path):
                                           DEFAULT_SOLVED_TIME,
                                           DEFAULT_SOLVED_STATUS,
                                           filtered_list[0],
+                                          re.sub(r'(\w*)[\.:：。\?？]?', r'\1',filtered_list[5]),
                                           DEFAULT_SOLVED_COUNTRY,
                                           DEFAULT_SOLVED_OWNER,
                                           '',
@@ -128,25 +136,29 @@ def do_count(smart_dict, report_dict, path):
                     _contents.append(descs)
                 descs = []
             elif re.match('\s?\d{1,2}\.', line) != None and type_group == None:
-                # 不记录当前内容
+                # 如果是 1. xxxx 的形式，不记录当前内容
                 if_record = False
-                if len(descs) != 0:
-                    _contents.append(descs)
-                descs = []
+                # if len(descs) != 0:
+                    # _contents.append(descs)
+                # descs = []
             else:
-                if if_record and _index != _len-1:
-                    descs.append(
-                        re.sub('【.*】', '', line.replace('\t', '').replace('- ', "")))
+                if comment and _cur_title!='':
+                    _report_dict[_cur_title][10] = comment.group(1)
+                if if_record and _index != _len-1 and not line.strip().startswith('**'):
+                    descs.append(re.sub('【.*】', '', line.replace('\t', '').replace('- ', "")))
             if res:
                 smart_dict[res] += 1
     if len(descs) != 0:
         _contents.append(descs)
     if len(_contents) < len(_report_dict):
         _contents.extend([[] for i in range(len(_report_dict)-len(_contents))])
+        
+    # 为每一条记录插入详情(根因分析)列
     for _index, item in enumerate(_report_dict):
-        _report_dict[item].insert(7, '{}'.format(''.join(_contents[_index])))
-    for k, v in _report_dict.items():
-        v.insert(7, k)
+        _report_dict[item].insert(8, '{}'.format(''.join(_contents[_index])))
+    
+    # for k, v in _report_dict.items():
+        # v.insert(7, k)
     report_dict = {**report_dict, **_report_dict}
     _contents = []
     return smart_dict, report_dict

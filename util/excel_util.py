@@ -64,9 +64,10 @@ def batch_insert_report(ws, _list, pos=[1, 1], spec_column=None, mode=0, _vertic
         row, column = [ord(letter)-65+1, int(pos[1:])]
     if isinstance(pos, list):
         row, column = pos
-    smart_width_and_height(ws, row, _list)
+    smart_width_and_height(ws, row, _list, spec_column)
     if spec_column != None:
-        ws.column_dimensions[spec_column].width = 105
+        ws.column_dimensions[spec_column].width = 85
+        ws.column_dimensions[chrstep(spec_column, -1)].width = 35
     if mode == 0:
         for index, value in enumerate(_list):
             _target_cell = ws.cell(row=row, column=column+index,
@@ -99,15 +100,30 @@ def batch_insert_report(ws, _list, pos=[1, 1], spec_column=None, mode=0, _vertic
     return ws
 
 
+# chrstep
+def chrstep(c, num):
+    return chr(ord(c)+num)
+
+
+def chr2index(c):
+    return ord(c)-65
+
+
 # 智能调整单元格宽度和高度
 
 
-def smart_width_and_height(ws, _row, _list: list):
+def smart_width_and_height(ws, _row, _list: list, spec_column: None):
     for _index, _ in enumerate(_list):
-        ws.column_dimensions[chr(_index+65).upper()].width = 12.5
+        ws.column_dimensions[chr(_index+65).upper()].width = 12.5 if ws.column_dimensions[chr(
+            _index+65).upper()].width < 12.5 else ws.column_dimensions[chr(_index+65).upper()].width
+        if len(str(_)) > 30:
+            ws.column_dimensions[chr(_index+65).upper()
+                                 ].width = 22.5 + (len(str(_))/9) * 3
+
     # 根据content和desc中的内容调整单元格高度
-    tar_height = 24 + 2 * (int(len(_list[0])/9)+1) + \
+    tar_height = 24 + 2 * (int(len(_list[chr2index(spec_column)])/9)+1) + \
         ''.join(map(str, _list)).count('\n') * 12
+
     ws.row_dimensions[_row].height = tar_height
     ws.row_dimensions[1].height = 30
 
