@@ -11,9 +11,12 @@
 from openpyxl import Workbook, load_workbook
 from openpyxl.worksheet.table import Table, TableStyleInfo
 from openpyxl.styles import Alignment, Font, Border, Side
-from tqdm import tqdm
 from util.common_tools import print_pro
+from util.list_tools import one_layer
 from base import constants
+from tqdm import tqdm
+import pandas as pd
+import json
 import os
 import copy
 import time
@@ -74,10 +77,10 @@ def batch_insert_report(ws, _list, pos=[1, 1], spec_column=None, mode=0, _vertic
                                    value=value)
             _target_cell.alignment = Alignment(
                 horizontal='center', vertical='center', wrapText=True)
-            thin = Side(border_style="thin", color="000000")
-            double = Side(border_style="double", color="000000")
-            _target_cell.border = Border(
-                top=double, left=thin, right=thin, bottom=double)
+            # thin = Side(border_style="thin", color="000000")
+            # double = Side(border_style="double", color="000000")
+            # _target_cell.border = Border(
+            #     top=double, left=thin, right=thin, bottom=double)
             # 微调格式
             if row == 1:
                 ws.cell(row=row, column=column+index).font = Font(bold=True)
@@ -89,7 +92,6 @@ def batch_insert_report(ws, _list, pos=[1, 1], spec_column=None, mode=0, _vertic
                         horizontal='left', vertical='top', wrapText=True)
         ws.cell(row=1, column=ord(spec_column)-65+1).alignment = Alignment(
             horizontal='center', vertical='center', wrapText=True)
-
         # 居中处理
         # wrapText=True 自动换行
 
@@ -114,15 +116,15 @@ def chr2index(c):
 
 def smart_width_and_height(ws, _row, _list: list, spec_column: None):
     for _index, _ in enumerate(_list):
-        ws.column_dimensions[chr(_index+65).upper()].width = 12.5 if ws.column_dimensions[chr(
-            _index+65).upper()].width < 12.5 else ws.column_dimensions[chr(_index+65).upper()].width
+        ws.column_dimensions[chr(_index+65).upper()].width = 14.67 if ws.column_dimensions[chr(
+            _index+65).upper()].width < 14.67 else ws.column_dimensions[chr(_index+65).upper()].width
         if len(str(_)) > 30:
             ws.column_dimensions[chr(_index+65).upper()
                                  ].width = 22.5 + (len(str(_))/9) * 3
 
     # 根据content和desc中的内容调整单元格高度
-    tar_height = 24 + 2 * (int(len(_list[chr2index(spec_column)])/9)+1) + \
-        ''.join(map(str, _list)).count('\n') * 12
+    tar_height = 16 + 5 * (int(len(_list[chr2index(spec_column)])/7)+1) + \
+        '\n'.join(map(str, _list)).count('\n') * 1
 
     ws.row_dimensions[_row].height = tar_height
     ws.row_dimensions[1].height = 30
@@ -207,6 +209,38 @@ def data_excel(excel_name_path, workbook, worksheet, title, data, data_type="cou
     return worksheet
 
 # 主函数
+
+# 导出Excel
+
+
+def to_excel(smart_dict, template_path, template_sheet_name):
+    try:
+        df = pd.DataFrame([smart_dict.values()], columns=[
+            i.replace('【', '').replace('】', '') for i in keys_list])
+        processed_data = df.values.tolist()
+        if os.path.exists(REPORT_FOLDER) == False:
+            os.makedirs(REPORT_FOLDER)
+        print('[processed_data] {} TO {}  => [{}]'.format(json.dumps(dict(zip(HEADER, one_layer(
+            processed_data))), indent=4, ensure_ascii=False), str(constants.REPORT_PATH), constants.SHEET_NAME))
+        export_to_excel(str(constants.REPORT_PATH), constants.HEADER, processed_data,
+                        constants.SHEET_NAME, data_type='count', template_path=template_path, template_sheet_name=template_sheet_name)
+    except Exception as e:
+        print_pro("导出失败，不存在目录或文件正在被使用。", constants.ERROR_PRINT)
+
+
+def to_report_excel(report_dict, template_path=None, template_sheet_name=None, spec_column=None):
+    try:
+        df = pd.DataFrame(list(report_dict.values()),
+                          columns=[constants.INFO_HEADER])
+        processed_data = df.values.tolist()
+        if os.path.exists(constants.REPORT_FOLDER) == False:
+            os.makedirs(constants.REPORT_FOLDER)
+        print_pro('[report_data] {} TO {} => [{}]'.format(json.dumps(dict(zip(constants.INFO_HEADER, one_layer(
+            processed_data))), indent=4, ensure_ascii=False), str(constants.REPORT_PATH), constants.REPORT_SHEET_NAME), p_type=constants.SUCCESS_PRINT)
+        export_to_excel(str(constants.REPORT_PATH), constants.INFO_HEADER,
+                        processed_data, constants.REPORT_SHEET_NAME, 'report', template_path=template_path, template_sheet_name=template_sheet_name, spec_column=spec_column)
+    except Exception as e:
+        print_pro("导出失败，不存在目录或文件正在被使用。", constants.ERROR_PRINT, e)
 
 
 def export_to_excel(path, title, data, sheet_name='Default', data_type="count", template_path=None, template_sheet_name=None, spec_column=None):
