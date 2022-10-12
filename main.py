@@ -103,13 +103,13 @@ def do_count(smart_dict, report_dict, path):
                 _type = type_group.group(1)
                 _cur_title = _content
                 # ["外部单号","业务系统","应用模块","问题发现时间","问题处理时长","状态","问题分类","问题描述","根因分析","国家","责任人","备注","问题大类"]
-                _report_dict[_content] = [filtered_list[1],
-                                          filtered_list[2],
-                                          filtered_list[3],
+                _report_dict[_content] = [filtered_list[1].strip(),
+                                          filtered_list[2].strip(),
+                                          filtered_list[3].strip(),
                                           cur_date,
                                           DEFAULT_SOLVED_TIME,
                                           DEFAULT_SOLVED_STATUS,
-                                          filtered_list[0],
+                                          filtered_list[0].strip(),
                                           re.sub(
                                               r'(\w*)[\.:：。\?？]?', r'\1', filtered_list[5]),
                                           '',
