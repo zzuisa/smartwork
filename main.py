@@ -9,18 +9,22 @@
 
 
 import os
+import sys
 import time
 import glob
 import json
 import configparser
 import inspect
 import collections
+import uuid
 import re
 from tqdm import tqdm
 from base import constants
 from util.common_tools import print_pro
 from util.excel_tools import to_excel, to_report_excel
 from util.config_tools import Config
+from util.encoding_converter_tools import convert_dir
+from crontab.auto import create_daily_work_folder
 
 config = Config.reader()
 smartwork_config = Config.reader('smartwork')
@@ -61,7 +65,7 @@ def copy_dict_from(source_dict: dict):
 def do_count(smart_dict, report_dict, path):
     if '.txt' not in path:
         return None
-    _file = open(path, 'r', encoding='UTF-8')
+    _file = open(path, 'r', encoding= 'utf-8')
 
     # 检索当前工作日志
     def verify(keys_list, line):
@@ -78,6 +82,7 @@ def do_count(smart_dict, report_dict, path):
     if_record = False
     _contents = []
     descs = []
+    print(_file.name)
     lines = _file.readlines()
     _len = len(lines)
     _report_dict = {}
@@ -86,7 +91,7 @@ def do_count(smart_dict, report_dict, path):
         _list = []
         # 问题分类#外部单号#业务系统#应用模块#问题大类
         filtered_str = re.sub(
-            r'.*【([\w、]*)-?(\w*)】【BS[:：]?([\w\s?]*)\[?(\w*)-?(\w*)\]?】(.*)', r'\1#\2#\3#\4#\5#\6', line).strip()
+            r'.*【([\w、]*)-?(\w*)】【(\w{2,3})[:：]?([\w\s?]*)\[?(\w*)-?(\w*)\]?】(.*)', r'\1#\2#\3#\4#\5#\6#\7', line).strip()
         filtered_list = filtered_str.split('#')
         comment = re.search(r'^\*\*[\s]*(.*)', line.strip())
         res = verify(keys_list, filtered_str)
@@ -94,29 +99,40 @@ def do_count(smart_dict, report_dict, path):
             _report_dict[_cur_title][8] = '{}'.format('\n'.join(descs))
         _content = re.sub(r'\d\.?(.*】)?(.*\w)[\.:：。]?', r'\2', line).strip()
         type_group = re.search('【(.*)】', line)
-        if len(filtered_list) == 6 and filtered_list[5] == '':
+
+        
+        if len(filtered_list) == 7 and filtered_list[6] == '':
             continue
         # 判断当前读取的行不是1. 2. 等空行
         if re.sub('\d{1,2}\.', '', line).strip() != '':
+            # TODO 这里有个bug： 如果当前行是第一行，且含有 1. 【关键词】则取出来的数据的头部会带有一个类似' '的字符，但这个并不是普通的空格或是tab，
+            # 也不是全角的空格（无法使用strip()过滤），具体是什么，目前不清楚，但是就是会占位2个单位长度(str)，只有10月之后会有这个情况，推测是因为
+            # 10月之后的日志文件变为GBK，而GBK转UTF-8 过程中，有为转换的字符导致的。
+            # 暂时先这样处理：
+            if _index == 0 and ' ' != line[:1]:
+                line = line[2:]
             # 判断当前读取的行是否是标题行。
-            if re.match('\s?\d{1,2}\.', line) != None and type_group != None and (len(filtered_list) == 6 and filtered_list[5] != ''):
+            if re.match('\s?\d{1,2}\.', line) != None and type_group != None and (len(filtered_list) == 7 and filtered_list[6] != ''):
                 _type = type_group.group(1)
-                _cur_title = _content
+                # print('type',_type)
+                
+                _cur_title = uuid.uuid1()
+                # filtered_list： 问题分类 外部单号 国家 业务系统 应用模块 问题大类 问题描述
                 # ["外部单号","业务系统","应用模块","问题发现时间","问题处理时长","状态","问题分类","问题描述","根因分析","国家","责任人","备注","问题大类"]
-                _report_dict[_content] = [filtered_list[1].strip(),
-                                          filtered_list[2].strip(),
+                _report_dict[_cur_title] = [filtered_list[1].strip(),
                                           filtered_list[3].strip(),
+                                          filtered_list[4].strip(),
                                           cur_date,
                                           DEFAULT_SOLVED_TIME,
                                           DEFAULT_SOLVED_STATUS,
                                           filtered_list[0].strip(),
                                           re.sub(
-                                              r'(\w*)[\.:：。\?？]?', r'\1', filtered_list[5]),
+                                              r'(\w*)[\.:：。\?？]?', r'\1', filtered_list[5]).strip(),
                                           '',
-                                          DEFAULT_SOLVED_COUNTRY,
+                                          constants.COUNTRY_MAP[filtered_list[2].upper()],
                                           DEFAULT_SOLVED_OWNER,
                                           '',
-                                          ISSUES[str(filtered_list[4]).lower()]]
+                                          ISSUES[str(filtered_list[5]).lower()]]
                 # 记录当前内容
                 if_record = True
 
@@ -129,10 +145,10 @@ def do_count(smart_dict, report_dict, path):
                 descs = []
             else:
                 if comment and _cur_title != '':
-                    _report_dict[_cur_title][11] += comment.group(1)
+                    _report_dict[_cur_title][11] += comment.group(1).replace('- ', '')
                 if if_record and _index != _len-1 and not line.strip().startswith('**'):
                     descs.append(
-                        re.sub('【.*】', '', line.replace('\t', '').replace('- ', "").strip()))
+                        re.sub('【.*】', '', line.replace('\t', '').replace('- ', '').strip()))
             if res:
                 smart_dict[res] += 1
     if len(descs) != 0:
@@ -154,7 +170,10 @@ def traverse():
         os._exit(0)
     for dirname in tqdm(os.listdir(constants.BASE_FOLDER), desc='输出报告', position=0):
         dirpath = '{}\\{}'.format(constants.BASE_FOLDER, dirname)
+
         if constants.current_year_and_month in dirname and os.path.isdir(dirpath):
+            # 扫描文件夹，对文件夹内相关的文件进行编码检查、转码等
+            convert_dir(dirpath)
             for report in os.listdir(dirpath):
                 if '.txt' in report:
                     file_path = '{}\\{}'.format(
@@ -165,9 +184,12 @@ def traverse():
 
 
 if __name__ == '__main__':
-    smart_dict, res_dict = traverse()
-    # to_excel(smart_dict, template_path='{}/{}.xlsx'.format(TEMPLATE_FOLDER, TEMPLATE_SHEET_NAME),
-    #  template_sheet_name=TEMPLATE_SHEET_NAME,)
-    # spec_column 代表[根因分析]列的列标，设置后，会自动根据行数调整单元格宽高。
-    to_report_excel(res_dict, template_path='{}/{}.xlsx'.format(constants.TEMPLATE_FOLDER, constants.TEMPLATE_SHEET_NAME),
-                    template_sheet_name=constants.TEMPLATE_SHEET_NAME, spec_column="I")
+    if len(sys.argv) == 1:
+        smart_dict, res_dict = traverse()
+        # to_excel(smart_dict, template_path='{}/{}.xlsx'.format(constants.TEMPLATE_FOLDER, constants.TEMPLATE_SHEET_NAME),
+        # template_sheet_name=constants.TEMPLATE_SHEET_NAME, keys_list=keys_list)
+        # spec_column 代表[根因分析]列的列标，设置后，会自动根据行数调整单元格宽高。
+        to_report_excel(res_dict, template_path='{}/{}.xlsx'.format(constants.TEMPLATE_FOLDER, constants.TEMPLATE_SHEET_NAME),
+                        template_sheet_name=constants.TEMPLATE_SHEET_NAME, spec_column="I")
+    elif sys.argv[1] == 'auto':
+        create_daily_work_folder()

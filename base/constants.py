@@ -30,3 +30,14 @@ SHEET_NAME = '{}月'.format(int(current_year_and_month[-2:]))
 REPORT_SHEET_NAME = '{}月-交付件'.format(int(current_year_and_month[-2:]))
 HEADER = json.loads(config['smartwork']["header"])
 INFO_HEADER = json.loads(config['smartwork']['info_header'])
+
+COUNTRY_MAP = {
+    'BS' : '新加坡',
+    'SG' : '新加坡',
+    'RU' : '俄罗斯',
+    'DE' : '德电',
+    'ED' : '德电',
+    'DR' : '德电、俄罗斯',
+    'RD' : '德电、俄罗斯',
+    'SDR': '新加坡、德电、俄罗斯'
+}

@@ -8,6 +8,8 @@
 '''
 
 from base import constants
+from datetime import datetime
+import os
 import sys
 
 
@@ -36,3 +38,7 @@ def indicator_format(indicator_type, _list):
     elif str(indicator_type).lower() == constants.RES_REDIS:
         return ['{}%'.format(str(round(i, 2))) if _index in [1] else i for _index, i in enumerate(_list)]
     return _list
+
+
+def get_cur_folder_name():
+    return '{}{}'.format(datetime.now().strftime('%Y%m%d'), ["周一", "周二", "周三", "周四", "周五", "周六", "周日"][datetime.now().weekday()])

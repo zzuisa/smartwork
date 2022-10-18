@@ -3,3 +3,4 @@ pandas==1.4.4
 et-xmlfile==1.1.0
 numpy==1.23.3
 tqdm==4.64.1
+chardet==5.0.0

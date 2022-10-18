@@ -227,19 +227,19 @@ def export_to_excel(path, title, data, sheet_name='Default', data_type="count", 
 # 导出Excel
 
 
-def to_excel(smart_dict, template_path, template_sheet_name):
-    try:
+def to_excel(smart_dict, template_path, template_sheet_name, keys_list):
+    # try:
         df = pd.DataFrame([smart_dict.values()], columns=[
             i.replace('【', '').replace('】', '') for i in keys_list])
         processed_data = df.values.tolist()
-        if os.path.exists(REPORT_FOLDER) == False:
-            os.makedirs(REPORT_FOLDER)
-        print('[processed_data] {} TO {}  => [{}]'.format(json.dumps(dict(zip(HEADER, one_layer(
+        if os.path.exists(constants.REPORT_FOLDER) == False:
+            os.makedirs(constants.REPORT_FOLDER)
+        print('[processed_data] {} TO {}  => [{}]'.format(json.dumps(dict(zip(constants.HEADER, one_layer(
             processed_data))), indent=4, ensure_ascii=False), str(constants.REPORT_PATH), constants.SHEET_NAME))
         export_to_excel(str(constants.REPORT_PATH), constants.HEADER, processed_data,
                         constants.SHEET_NAME, data_type='count', template_path=template_path, template_sheet_name=template_sheet_name)
-    except Exception as e:
-        print_pro("导出失败，不存在目录或文件正在被使用。", constants.ERROR_PRINT)
+    # except Exception as e:
+        # print_pro("导出失败，不存在目录或文件正在被使用。", constants.ERROR_PRINT, e)
 
 
 def to_report_excel(report_dict, template_path=None, template_sheet_name=None, spec_column=None, simple_mode=True):
