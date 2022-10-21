@@ -10,8 +10,12 @@
 
 __all__ = ['one_layer']
 
-# 只保留1层list
 def one_layer(_list):
+    """
+    只保留1层list
+    @param 待处理的list类型的数据
+    @return list
+    """
     if len(_list) == 0:
         return _list
     if isinstance(_list[0],list):

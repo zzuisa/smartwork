@@ -25,6 +25,12 @@ convertfiletypes = [
 
 
 def check_need_convert(filename):
+    """
+    检查文件编码是否需要转换
+    @param filename: 要检查的文件名称
+    @return True or False
+    """
+    
     for filetype in convertfiletypes:
         if filename.lower().endswith(filetype):
             return True
@@ -37,6 +43,10 @@ unkown_cnt = 0
 
 
 def convert_encoding_to_utf_8(filename):
+    """
+    将文件编码格式转为UTF-8
+    @param filename: 要检查的文件名称
+    """
     global total_cnt, success_cnt, unkown_cnt
     # Backup the origin file.
 
@@ -57,6 +67,10 @@ def convert_encoding_to_utf_8(filename):
 
 
 def convert_dir(root_dir):
+    """
+    待转换编码的文件目录
+    @param filename: 要检查的文件目录
+    """
     if os.path.exists(root_dir) == False:
         print_pro("[error] DIR: {} do not exit".format(
             root_dir), constants.ERROR_PRINT)

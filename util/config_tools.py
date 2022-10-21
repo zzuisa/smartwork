@@ -16,6 +16,11 @@ class Config:
 
     @staticmethod
     def reader(instance_name=None):
+        """
+
+        @param instance_name: 与config.ini文件中的[section]对应
+        @return 以dict的格式返回该section
+        """
         config = configparser.ConfigParser()
         config.read('./confs/conf.ini', encoding='utf-8')
         instance_config = {}
