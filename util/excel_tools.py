@@ -44,8 +44,6 @@ def chr2index(c):
     return ord(c)-65
 
 
-
-
 def smart_width_and_height(ws, _row, _list: list, spec_column: None):
     """
     智能调整单元格宽度和高度
@@ -70,7 +68,6 @@ def smart_width_and_height(ws, _row, _list: list, spec_column: None):
     ws.row_dimensions[1].height = 30
 
 
-
 def set_filter_and_sort(ws, _all_list: list):
     """
     设置过滤器和排序字段（有未解决bug，暂不可用）
@@ -88,7 +85,6 @@ def set_filter_and_sort(ws, _all_list: list):
     ws.auto_filter.add_sort_condition("C2:D{}".format(_row))
 
 
-
 def batch_insert(ws, _list, pos=[1, 1], spec_column=None, mode=0, _vertical='center'):
     """
     批量插入支持传入'A1' 和 [row,col]形式的数据
@@ -101,7 +97,7 @@ def batch_insert(ws, _list, pos=[1, 1], spec_column=None, mode=0, _vertical='cen
     @param mode: 插入方向 0 水平 1 垂直
     @param _vertical: 设置当前单元格的文本格式
     @return 当前操作的worksheet对象
-    """   
+    """
     row, column = 1, 1
     if isinstance(pos, str):
         row, column = [chr2index(pos[:1])+1, int(pos[1:])]
@@ -133,7 +129,7 @@ def batch_insert(ws, _list, pos=[1, 1], spec_column=None, mode=0, _vertical='cen
 
 
 def batch_insert_report(ws, _list, pos=[1, 1], spec_column=None, mode=0, _vertical='center', simple_mode=True):
-    
+
     row, column = 1, 1
     if isinstance(pos, str):
         row, column = [chr2index(pos[:1])+1, int(pos[1:])]
@@ -165,7 +161,7 @@ def batch_insert_report(ws, _list, pos=[1, 1], spec_column=None, mode=0, _vertic
             if spec_column != None:
                 # 根据《海外产出表2022》https://onebox.huawei.com/v/4126d6a8c04fc41a7548bcfcb5729ea4?type=0 的格式调整，
                 # 所有涉及的列改为 left,top
-                if index in [1,2,7,8,9,11,12] :
+                if index in [1, 2, 7, 8, 9, 11, 12]:
                     ws.cell(row=row, column=index+1).alignment = Alignment(
                         horizontal='left', vertical='top', wrapText=not simple_mode)
         ws.cell(row=1, column=chr2index(spec_column)+1).alignment = Alignment(
@@ -185,10 +181,8 @@ def open_file(excel_name_path):
     打开指定目录的excel
     @param excel_name_path: excel所在目录 
     @return Workbook
-    """   
+    """
     return Workbook() if not os.path.isfile(excel_name_path) else load_workbook(str(excel_name_path))
-
-
 
 
 def open_or_add_sheet(workbook, sheet_name, template_path=None, template_sheet_name=None):
@@ -199,7 +193,7 @@ def open_or_add_sheet(workbook, sheet_name, template_path=None, template_sheet_n
     @param template_path: 是否添加模板页面，若是填写其路径
     @param template_sheet_name: 模板页面工作簿名称
     @return Workbook
-    """   
+    """
     worksheet = workbook.active
     if sheet_name in workbook.sheetnames:
         worksheet = workbook[sheet_name]
@@ -224,7 +218,7 @@ def copy_sheet_from(path, sheet_name):
     @param path: 指定的excel路径
     @param sheet_name: 工作簿名称
     @return 指定的工作簿对应的worksheet
-    """   
+    """
     wb = open_file(path)
     if sheet_name in wb.sheetnames:
         worksheet = wb[sheet_name]
@@ -232,7 +226,6 @@ def copy_sheet_from(path, sheet_name):
         return worksheet
     else:
         print_pro('不存在此工作簿!', constants.ERROR_PRINT)
-
 
 
 def data_excel(excel_name_path, workbook, worksheet, header, data, data_type="count", template_path=None, template_sheet_name=None, spec_column=None, simple_mode=True):
@@ -248,7 +241,7 @@ def data_excel(excel_name_path, workbook, worksheet, header, data, data_type="co
     @param template_sheet_name: 模板页面工作簿名称
     @param spec_column: 需要特殊处理的列(字符比较长的列)
     @param simple_mode: 极简模式(可直接粘贴到在线交付件)|自动模式(自动格式化单元格)
-    """  
+    """
     if template_sheet_name and template_sheet_name not in workbook.sheetnames:
         cp_sheet = copy_sheet_from(template_path, template_sheet_name)
         cp_sheet._parent = workbook
@@ -261,7 +254,7 @@ def data_excel(excel_name_path, workbook, worksheet, header, data, data_type="co
     value_normal = values
     # 如果data_type 是 'count' 则表示计数——统计本月各类事项处理个数，生成统计表
     # 反之 (data_type 是'report') 则表示导出具体交付件，和详情，生成报告表。
-    
+
     # 插入 header
     worksheet = batch_insert(worksheet, header, [1, 1], spec_column) if data_type == 'count' else batch_insert_report(
         worksheet, header, [1, 1], spec_column, simple_mode=simple_mode)
@@ -276,32 +269,32 @@ def data_excel(excel_name_path, workbook, worksheet, header, data, data_type="co
     workbook.close()
 
 
-def to_excel(smart_dict, template_path, template_sheet_name):
+def to_count_excel(smart_dict, template_path, template_sheet_name):
     """
     统计月度各项指标，导出Excel
     最终处理，导出excel
     @param smart_dict: 源数据 dict 格式
     @param template_path: 是否添加模板页面，若是填写其路径
     @param template_sheet_name: 模板页面工作簿名称
-    """  
+    """
     try:
         alter_header = constants.HEADER
         alter_header.append('总计')
         alter_list = list(smart_dict.values())
-        alter_list.append(sum(smart_dict.values())) 
+        alter_list.append(sum(smart_dict.values()))
         df = pd.DataFrame([alter_list], columns=[alter_header])
         processed_data = df.values.tolist()
         if os.path.exists(constants.REPORT_FOLDER) == False:
             os.makedirs(constants.REPORT_FOLDER)
         wb = open_file(str(constants.REPORT_PATH))
         ws = open_or_add_sheet(wb, constants.SHEET_NAME, template_path=template_path,
-                            template_sheet_name=template_sheet_name)
-       
+                               template_sheet_name=template_sheet_name)
+
         data_excel(str(constants.REPORT_PATH), wb, ws, alter_header, processed_data,
-               data_type='count', spec_column=None, simple_mode=True)
-        
-        print('[processed_data] {} TO {}  => [{}]'.format(json.dumps(dict(zip(constants.HEADER, one_layer(
-            processed_data))), indent=4, ensure_ascii=False), str(constants.REPORT_PATH), constants.SHEET_NAME))
+                   data_type='count', spec_column=None, simple_mode=True)
+
+        print_pro('[processed_data] {} TO {}  => [{}]'.format(json.dumps(dict(zip(constants.HEADER, one_layer(
+            processed_data))), indent=4, ensure_ascii=False), str(constants.REPORT_PATH), constants.SHEET_NAME), constants.SUCCESS_PRINT)
 
     except Exception as e:
         print_pro("导出失败，不存在目录或文件正在被使用。", constants.ERROR_PRINT, e)
@@ -315,7 +308,7 @@ def to_report_excel(report_dict, template_path=None, template_sheet_name=None, s
     @param template_sheet_name: 模板页面工作簿名称
     @param spec_column: 需要特殊处理的列(字符比较长的列)
     @param simple_mode: 极简模式(可直接粘贴到在线交付件)|自动模式(自动格式化单元格)
-    """  
+    """
     try:
         df = pd.DataFrame(list(report_dict.values()),
                           columns=[constants.INFO_HEADER])
@@ -324,10 +317,10 @@ def to_report_excel(report_dict, template_path=None, template_sheet_name=None, s
             os.makedirs(constants.REPORT_FOLDER)
         wb = open_file(str(constants.REPORT_PATH))
         ws = open_or_add_sheet(wb, constants.REPORT_SHEET_NAME, template_path=template_path,
-                            template_sheet_name=template_sheet_name)
+                               template_sheet_name=template_sheet_name)
         data_excel(str(constants.REPORT_PATH), wb, ws, constants.INFO_HEADER, processed_data,
-               data_type='report', spec_column=spec_column, simple_mode=simple_mode)
-        
+                   data_type='report', spec_column=spec_column, simple_mode=simple_mode)
+
         print_pro('[report_data] {} TO {} => [{}]'.format(json.dumps(dict(zip(constants.INFO_HEADER, one_layer(
             processed_data))), indent=4, ensure_ascii=False), str(constants.REPORT_PATH), constants.REPORT_SHEET_NAME), p_type=constants.SUCCESS_PRINT)
 

@@ -79,7 +79,7 @@ def do_count(smart_dict, report_dict, path):
     # 生成交付件
     _re = '.*工作日报(\d+).txt'
     cur_date = re.search(_re, path).group(1)
-    cur_date = '{}/{}/{}'.format(cur_date[:4], cur_date[4:6], cur_date[6:8])
+    cur_date = '{}-{}-{}'.format(cur_date[:4], cur_date[4:6], cur_date[6:8])
     if_record = False
     _contents = []
     descs = []
@@ -109,9 +109,9 @@ def do_count(smart_dict, report_dict, path):
             # 也不是全角的空格（无法使用strip()过滤），具体是什么，目前不清楚，但是就是会占位2个单位长度(str)，只有10月之后会有这个情况，推测是因为
             # 10月之后的日志文件变为GBK，而GBK转UTF-8 过程中，有为转换的字符导致的。
             # 暂时先这样处理：
-            if _index == 0 and ' ' != line[:1]:
-                line = line[2:]
-            # 判断当前读取的行是否是标题行。
+            # if _index == 0 and ' ' != line[:1]:
+            #     line = line[2:]
+            #     print('line',line)
             if re.match('\s?\d{1,2}\.', line) != None and type_group != None and (len(filtered_list) == 7 and filtered_list[6] != ''):
                 _type = type_group.group(1)
                 # print('type',_type)
@@ -127,7 +127,7 @@ def do_count(smart_dict, report_dict, path):
                                             DEFAULT_SOLVED_STATUS,
                                             filtered_list[0].strip(),
                                             re.sub(
-                    r'(\w*)[\.:：。\?？]?', r'\1', filtered_list[5]).strip(),
+                    r'(\w*)[\.:：。\?？]?', r'\1', filtered_list[6]).strip(),
                     '',
                     constants.COUNTRY_MAP[filtered_list[2].upper(
                     )],
@@ -167,12 +167,12 @@ def do_count(smart_dict, report_dict, path):
 def traverse():
     smart_dict = collections.defaultdict(int)
     res_dict = {}
+    root_path = '{}\\{}'.format(constants.BASE_FOLDER, constants.current_year_and_month)
     if os.path.exists(constants.BASE_FOLDER) == False:
         print('不存在此目录:{}'.format(constants.BASE_FOLDER))
         os._exit(0)
-    for dirname in tqdm(os.listdir(constants.BASE_FOLDER), desc='输出报告', position=0):
-        dirpath = '{}\\{}'.format(constants.BASE_FOLDER, dirname)
-
+    for dirname in tqdm(os.listdir(root_path), desc='输出报告', position=0):
+        dirpath = '{}\\{}'.format(root_path, dirname)
         if constants.current_year_and_month in dirname and os.path.isdir(dirpath):
             # 扫描文件夹，对文件夹内相关的文件进行编码检查、转码等
             convert_dir(dirpath)
