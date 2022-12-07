@@ -55,12 +55,10 @@ def convert_encoding_to_utf_8(filename):
     source_encoding = chardet.detect(content)['encoding']
     total_cnt += 1
     if source_encoding == None:
-        print_pro("??{}".format(filename), constants.WARN_PRINT)
+        print_pro("?? {}".format(filename), constants.WARN_PRINT)
         unkown_cnt += 1
         return
-    print("  ", source_encoding, filename)
     if source_encoding != 'utf-8' and source_encoding != 'UTF-8-SIG':
-        # .encode(source_encoding)
         content = content.decode(source_encoding, 'ignore')
         codecs.open(filename, 'w', encoding='UTF-8-SIG').write(content)
     success_cnt += 1
@@ -74,7 +72,6 @@ def convert_dir(root_dir):
     if os.path.exists(root_dir) == False:
         print_pro("[error] DIR: {} do not exit".format(
             root_dir), constants.ERROR_PRINT)
-    print("work in", root_dir)
     for root, dirs, files in os.walk(root_dir):
         for f in files:
             if check_need_convert(f):
@@ -83,5 +80,5 @@ def convert_dir(root_dir):
                     convert_encoding_to_utf_8(filename)
                 except Exception as e:
                     print("WA", filename, e)
-    print_pro("finish total: {}, success: {}, unkown_cnt: {}".format(
-        total_cnt, success_cnt, unkown_cnt))
+    # print_pro("finish total: {}, success: {}, unkown_cnt: {}".format(
+    #     total_cnt, success_cnt, unkown_cnt))

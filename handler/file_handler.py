@@ -60,13 +60,16 @@ def copy_dict_from(source_dict: dict):
             target_dict[i] = 0
     return target_dict
 
-# 统计数量
 
-
-def do_count(smart_dict, report_dict, path):
+def do_count(path):
+    """
+    统计数量
+    @param path: 报告所在工作目录
+    """
     if '.txt' not in path:
         return None
     _file = open(path, 'r', encoding='utf-8')
+    smart_dict = collections.defaultdict(int)
 
     # 检索当前工作日志
     def verify(keys_list, line):
@@ -83,9 +86,9 @@ def do_count(smart_dict, report_dict, path):
     if_record = False
     _contents = []
     descs = []
-    print(_file.name)
     lines = _file.readlines()
     _len = len(lines)
+    report_dict = {}
     _report_dict = {}
     _cur_title = ''
     for _index, line in enumerate(lines):
@@ -123,17 +126,17 @@ def do_count(smart_dict, report_dict, path):
                                             filtered_list[3].strip(),
                                             filtered_list[4].strip(),
                                             cur_date,
-                                            DEFAULT_SOLVED_TIME,
+                                            generate_time(filtered_list),
                                             DEFAULT_SOLVED_STATUS,
                                             filtered_list[0].strip(),
                                             re.sub(
                     r'(\w*)[\.:：。\?？]?', r'\1', filtered_list[6]).strip(),
                     '',
-                    constants.COUNTRY_MAP[filtered_list[2].upper(
-                    )],
+                    check_origin(filtered_list),
                     DEFAULT_SOLVED_OWNER,
                     '',
-                    ISSUES[str(filtered_list[5]).lower()]]
+                    ISSUES[str(filtered_list[5]).lower()]
+                ]
                 # 记录当前内容
                 if_record = True
 
@@ -155,24 +158,62 @@ def do_count(smart_dict, report_dict, path):
                 smart_dict[res] += 1
     if len(descs) != 0:
         _report_dict[_cur_title][8] = '{}'.format('\n'.join(descs))
-
     report_dict = {**report_dict, **_report_dict}
     _contents = []
     return smart_dict, report_dict
 
+def generate_time(filtered_list):
+    """
+    生成工作时长(默认)
+    @param filtered_list: 通过正则过滤后的列表 
+    """
+    
+    q_type = filtered_list[0]
+    q_desc = filtered_list[6]
+    if '资源管理' in q_type:
+        if 'sg-auto' in q_desc:
+            return 4
+        return 3
+    if '灰度升级部署' in q_type:
+        return 3
+    if '咨询' in q_type:
+        return 1
+    if '告警' in q_type:
+        return 1
+    if '变更实施' in q_type:
+        return 3 
+    return 2
+def check_origin(filtered_list):
+    country_map = constants.COUNTRY_MAP
+    if filtered_list[2].upper() != 'SG':
+        return country_map[filtered_list[2].upper()]
+    for country_name in set(country_map.values()):
+        if country_name in filtered_list[6]:
+            return country_name
+    return country_map[filtered_list[2].upper()]
 
-# 文件夹检索
 
-
-def traverse():
-    smart_dict = collections.defaultdict(int)
+def traverse(before_date=None):
+    
+    """
+    文件夹检索
+    @param before_date: 由main函数传进来的参数，表示检索before_date日期(含)之后的报告 
+    """
+    
+    
     res_dict = {}
-    root_path = '{}\\{}'.format(constants.BASE_FOLDER, constants.current_year_and_month)
+    root_path = '{}\\{}'.format(
+        constants.BASE_FOLDER, constants.current_year_and_month)
     if os.path.exists(constants.BASE_FOLDER) == False:
         print('不存在此目录:{}'.format(constants.BASE_FOLDER))
         os._exit(0)
     for dirname in tqdm(os.listdir(root_path), desc='输出报告', position=0):
         dirpath = '{}\\{}'.format(root_path, dirname)
+        if (before_date):
+            cur = time.mktime(time.strptime(dirname[:-2],'%Y%m%d'))
+            before = time.mktime(time.strptime(before_date,'%Y%m%d'))
+            if cur < before:
+                continue
         if constants.current_year_and_month in dirname and os.path.isdir(dirpath):
             # 扫描文件夹，对文件夹内相关的文件进行编码检查、转码等
             convert_dir(dirpath)
@@ -180,6 +221,5 @@ def traverse():
                 if '.txt' in report:
                     file_path = '{}\\{}'.format(
                         dirpath, report).replace('\\', '\\\\')
-                    smart_dict, res_dict = do_count(
-                        smart_dict, res_dict, file_path)
+                    smart_dict, res_dict = do_count(file_path)
     return smart_dict, res_dict
