@@ -61,7 +61,7 @@ def copy_dict_from(source_dict: dict):
     return target_dict
 
 
-def do_count(path):
+def do_count(smart_dict, report_dict, path):
     """
     统计数量
     @param path: 报告所在工作目录
@@ -69,7 +69,6 @@ def do_count(path):
     if '.txt' not in path:
         return None
     _file = open(path, 'r', encoding='utf-8')
-    smart_dict = collections.defaultdict(int)
 
     # 检索当前工作日志
     def verify(keys_list, line):
@@ -88,7 +87,6 @@ def do_count(path):
     descs = []
     lines = _file.readlines()
     _len = len(lines)
-    report_dict = {}
     _report_dict = {}
     _cur_title = ''
     for _index, line in enumerate(lines):
@@ -200,7 +198,7 @@ def traverse(before_date=None):
     @param before_date: 由main函数传进来的参数，表示检索before_date日期(含)之后的报告 
     """
     
-    
+    smart_dict = collections.defaultdict(int)
     res_dict = {}
     root_path = '{}\\{}'.format(
         constants.BASE_FOLDER, constants.current_year_and_month)
@@ -221,5 +219,5 @@ def traverse(before_date=None):
                 if '.txt' in report:
                     file_path = '{}\\{}'.format(
                         dirpath, report).replace('\\', '\\\\')
-                    smart_dict, res_dict = do_count(file_path)
+                    smart_dict, res_dict = do_count(smart_dict, res_dict, file_path)
     return smart_dict, res_dict
