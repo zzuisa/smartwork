@@ -32,7 +32,7 @@ def create_daily_work_folder():
     cur_folder = '{}//{}//{}'.format(base_folder,
                                      constants.current_year_and_month,
                                      get_cur_folder_name())
-    pre_text = '1. 【资源管理】【SG:CBG Myhuawei[-op]】\n- \n2. 【告警、监控、巡检】【RU:CBG Myhuawei[eCommerce-op]】处理俄罗斯电商告警:\n- \n根因分析: \n3. 【告警、监控、巡检】【SG:CBG Myhuawei[-op]】例行巡检 - CBG官网、电商中台、华为论坛 \n- 输出巡检报告： de-inspection{}.xlsx\n** 无异常指标\n'.format( time.strftime('%Y%m%d', time.localtime()))
+    pre_text = '1. 【资源管理】【SG:CBG Myhuawei[-op]】\n- \n2. 【告警、监控、巡检】【DE:CBG Myhuawei[eCommerce-op]】处理德电告警:\n- \n根因分析: \n3. 【告警、监控、巡检】【DE:CBG Myhuawei[-op]】例行巡检 - CBG官网、电商中台、华为论坛 \n- 输出巡检报告： de-inspection{}.xlsx\n** 无异常指标\n'.format( time.strftime('%Y%m%d', time.localtime()))
     report_name = '工作日报{}.txt'.format(
         time.strftime('%Y%m%d', time.localtime()))
     for i in base:

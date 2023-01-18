@@ -119,7 +119,7 @@ def do_count(smart_dict, report_dict, path):
 
                 _cur_title = uuid.uuid1()
                 # filtered_list： 问题分类 外部单号 国家 业务系统 应用模块 问题大类 问题描述
-                # ["外部单号","业务系统","应用模块","问题发现时间","问题处理时长","状态","问题分类","问题描述","根因分析","国家","责任人","备注","问题大类"]
+                # ["外部单号","业务系统","应用模块","问题发现时间","问题处理时长","状态","问题分类","问题描述","根因分析","国家","区域","责任人","备注","问题大类"]
                 _report_dict[_cur_title] = [filtered_list[1].strip(),
                                             filtered_list[3].strip(),
                                             filtered_list[4].strip(),
@@ -130,6 +130,7 @@ def do_count(smart_dict, report_dict, path):
                                             re.sub(
                     r'(\w*)[\.:：。\?？]?', r'\1', filtered_list[6]).strip(),
                     '',
+                    check_origin(filtered_list),
                     check_origin(filtered_list),
                     DEFAULT_SOLVED_OWNER,
                     '',
@@ -147,7 +148,7 @@ def do_count(smart_dict, report_dict, path):
                 descs = []
             else:
                 if comment and _cur_title != '':
-                    _report_dict[_cur_title][11] += comment.group(
+                    _report_dict[_cur_title][12] += comment.group(
                         1).replace('- ', '')
                 if if_record and _index != _len-1 and not line.strip().startswith('**'):
                     descs.append(
