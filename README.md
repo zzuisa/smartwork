@@ -1,12 +1,14 @@
 # SmartWork - 智能工作日志管理系统
 
 [![Python Version](https://img.shields.io/badge/python-3.8+-blue.svg)](https://python.org)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Performance](https://img.shields.io/badge/performance-optimized-orange.svg)](PERFORMANCE_OPTIMIZATION.md)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)]
+[![Performance](https://img.shields.io/badge/performance-optimized-orange.svg)]
 
 ## 📋 项目简介
 
 SmartWork 是一个智能工作日志管理系统，专为需要定期统计和汇报工作量的场景设计。系统能够自动处理工作日志文件，生成标准化的交付件报表，并提供每日工作目录自动生成功能。
+
+**当前版本**: V 1.6.0 - 配置优化版本
 
 ## ✨ 主要功能
 
@@ -27,185 +29,181 @@ SmartWork 是一个智能工作日志管理系统，专为需要定期统计和�
 
 ## 📦 安装要求
 
-### 系统要求
 - Python 3.8+
-- Windows/Linux/macOS
+- 依赖包：见 `confs/requirements.txt`
 
-### 依赖包
+## 🛠️ 安装步骤
+
+1. 克隆项目到本地
+2. 安装依赖包：
 ```bash
-pip install -r confs/requrements.txt
+pip install -r confs/requirements.txt
 ```
 
-主要依赖：
-- `openpyxl==3.0.10` - Excel文件处理
-- `pandas==1.4.4` - 数据处理
-- `chardet==5.0.0` - 文件编码检测
-- `tqdm==4.64.1` - 进度条显示
+## ⚙️ 配置设置
 
-## 🎯 快速开始
+编辑配置文件 `confs/conf.ini`，根据你的需求调整参数
 
-### 1. 克隆项目
+### 主要配置项
+
+- **路径配置**：设置工作日志目录、报告输出目录、模板目录
+- **问题分类**：配置工作日志中的问题分类标签
+- **时间配置**：设置不同类型工作的标准时长
+- **性能配置**：调整缓存大小、批处理参数等
+
+## 🚀 使用方法
+
+### 基本用法
+
 ```bash
-git clone https://github.com/zzuisa/smartwork.git
-cd smartwork
+# 处理指定日期的工作日志
+python main.py --date 2024-01-15
+
+# 处理指定日期范围的工作日志
+python main.py --date 2024-01-01 --end-date 2024-01-31
+
+# 简单模式（只生成统计报表）
+python main.py --simple
+
+# 自动模式（创建每日工作文件夹）
+python main.py --auto
 ```
 
-### 2. 安装依赖
-```bash
-pip install -r confs/requrements.txt
-```
+### 参数说明
 
-### 3. 配置设置
-编辑 `confs/conf.ini` 文件，设置你的工作目录路径：
-```ini
-[smartwork]
-base_folder = D:\worklogs\
-report_folder = D:\workspace\0交付件
-template_folder = D:\workspace\0templates
-```
-
-### 4. 运行程序
-
-#### 生成每日工作目录
-```bash
-python main.py auto
-```
-
-#### 统计交付件并生成报表
-```bash
-python main.py
-```
-
-#### 导出指定日期范围的报告
-```bash
-python main.py 1205  # 导出12月05日之后的报告
-python main.py 1201,1215  # 导出12月01日到12月15日的报告
-```
-
-#### 使用极简模式（适合在线粘贴）
-```bash
-python main.py -s
-```
+- `--date`: 指定处理日期（格式：YYYY-MM-DD）
+- `--end-date`: 指定结束日期（格式：YYYY-MM-DD）
+- `--simple`: 简单模式，只生成统计报表
+- `--auto`: 自动模式，创建每日工作文件夹
 
 ## 📁 项目结构
 
 ```
 smartwork/
-├── base/                    # 基础模块
+├── main.py                 # 主程序入口
+├── base/                   # 基础模块
 │   └── constants.py        # 常量定义
 ├── confs/                  # 配置文件
 │   ├── conf.ini           # 主配置文件
-│   └── requrements.txt    # 依赖包列表
+│   └── requirements.txt   # 依赖包列表
+├── handler/               # 处理模块
+│   └── file_handler.py    # 文件处理逻辑
 ├── crontab/               # 定时任务
-│   └── auto.py           # 自动生成工作目录
-├── handler/               # 文件处理模块
-│   └── file_handler.py   # 核心文件处理逻辑
-├── util/                  # 工具模块
-│   ├── common_tools.py   # 通用工具
-│   ├── config_tools.py   # 配置工具
-│   ├── encoding_converter_tools.py  # 编码转换工具
-│   ├── excel_tools.py    # Excel处理工具
-│   ├── list_tools.py     # 列表工具
-│   └── performance_tools.py  # 性能优化工具
-├── main.py               # 主程序入口
-├── README.md            # 项目说明
-├── PERFORMANCE_OPTIMIZATION.md  # 性能优化报告
-└── .gitignore          # Git忽略文件
+│   └── auto.py           # 自动任务
+└── util/                  # 工具模块
+    ├── common_tools.py    # 通用工具
+    ├── config_tools.py    # 配置工具
+    ├── encoding_converter_tools.py  # 编码转换工具
+    ├── excel_tools.py     # Excel工具
+    └── list_tools.py      # 列表工具
 ```
 
-## 📊 输出示例
+## 📊 输出说明
 
-### 统计结果示例
-```json
-{
-    "第三方问题": 0,
-    "非问题": 0,
-    "系统配置问题": 1,
-    "系统问题": 0,
-    "业务配置问题": 0,
-    "转需求": 0,
-    "咨询问题": 1,
-    "变更实施": 1,
-    "灰度升级部署": 4,
-    "告警、监控、巡检": 10,
-    "案例输出": 1,
-    "变更评审": 1,
-    "资源管理": 13,
-    "总计": 32
-}
-```
+### 统计报表
+- 按问题分类统计工作量
+- 按时间维度统计工作分布
+- 按责任人统计工作分配
 
-### 交付件报表示例
-| 外部单号 | 业务系统 | 应用模块 | 问题发现时间 | 问题处理时长 | 状态 | 问题分类 | 问题描述 | 根因分析 | 国家 | 责任人 | 备注 | 问题大类 |
-|---------|---------|---------|-------------|-------------|------|---------|---------|---------|------|-------|------|---------|
-| R01941735 | CBG Myhuawei | 服务化中台 | 2022/09/28 | 4 | Closed | 变更实施 | 服务中台forum | 拉、推镜像，升级cce，刷数据库脚本 | 新加坡 | xx | | 操作类 |
+### 交付件报表
+- 详细的工作记录列表
+- 包含问题描述、处理时长、责任人等信息
+- 支持Excel格式导出
 
 ## 🔧 配置说明
 
-### 工作日志格式
-系统支持以下格式的工作日志：
+### 核心配置节
 
+- `[smartwork]`: 核心配置，包含路径、表头等
+- `[issue-types]`: 问题类型配置
+- `[country-mapping]`: 国家映射配置
+- `[time-config]`: 时间配置
+- `[performance]`: 性能配置
+- `[file-config]`: 文件处理配置
+
+### 配置示例
+
+```ini
+[smartwork]
+# 工作日志基础目录
+base_folder = /path/to/worklogs/
+# 报告输出目录
+report_folder = /path/to/reports/
+# 模板目录
+template_folder = /path/to/templates/
+
+[time-config]
+# 案例输出工作时长
+case_output_hours = 3
+# 默认工作时长
+default_hours = 2
 ```
-1. 【案例输出】【DE:vmall[vmall-op]】案例标题
-   详细描述内容...
 
-2. 【IT数据查询】【DE:vmall[vmall-op]】查询内容
-   查询结果和说明...
+## 🚀 性能特性
 
-3. 【业务咨询问题】【DE:vmall[vmall-cons]】咨询内容
-   解答和说明...
+- **智能缓存**：配置和计算结果自动缓存
+- **批量处理**：支持大量文件的高效处理
+- **内存优化**：减少内存占用，提高处理效率
+- **进度显示**：实时显示处理进度
+- **错误恢复**：自动处理异常情况
+
+## 📝 使用示例
+
+### 处理单日工作日志
+```bash
+python main.py --date 2024-01-15
 ```
 
-### 问题分类
-系统支持以下问题分类：
-- 第三方问题
-- 非问题
-- 系统配置问题
-- 系统问题
-- 业务配置问题
-- 转需求
-- 业务咨询问题
-- 变更实施
-- 灰度升级部署
-- 告警、监控、巡检
-- 案例输出
-- 变更评审
-- 资源管理
+### 处理月度工作日志
+```bash
+python main.py --date 2024-01-01 --end-date 2024-01-31
+```
 
-## 🚀 性能优化
+### 创建每日工作文件夹
+```bash
+python main.py --auto
+```
 
-本项目经过全面性能优化，详细优化报告请查看 [PERFORMANCE_OPTIMIZATION.md](PERFORMANCE_OPTIMIZATION.md)
+## 🔍 故障排除
 
-### 主要优化成果
-- 整体性能提升 39%
-- 内存使用减少 29%
-- 文件处理速度提升 30-50%
-- Excel生成速度提升 40-60%
-- 配置加载速度提升 88%
+### 常见问题
+
+1. **配置文件错误**
+   - 检查 `confs/conf.ini` 文件格式
+   - 确认路径配置正确
+
+2. **文件编码问题**
+   - 系统会自动检测和转换文件编码
+   - 支持的文件类型：.txt
+
+3. **权限问题**
+   - 确保对工作目录有读写权限
+   - 检查输出目录的访问权限
+
+## 📈 版本历史
+
+- **V 1.6.0** - 配置优化版本
+  - 全面配置化，支持灵活参数调整
+  - 增强错误处理和日志记录
+  - 优化性能和内存使用
+
+- **V 1.5.0** - 性能优化版本
+  - 整体性能提升39%
+  - 内存使用减少29%
+  - 智能缓存机制
 
 ## 🤝 贡献指南
 
-欢迎提交 Issue 和 Pull Request 来改进这个项目！
-
-1. Fork 本仓库
-2. 创建你的特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交你的更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 打开一个 Pull Request
+欢迎提交Issue和Pull Request来改进项目。
 
 ## 📄 许可证
 
-本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情
+本项目采用MIT许可证。
 
 ## 📞 联系方式
 
-- 项目链接: [https://github.com/zzuisa/smartwork](https://github.com/zzuisa/smartwork)
-- 问题反馈: [Issues](https://github.com/zzuisa/smartwork/issues)
-
-## 🙏 致谢
-
-感谢所有为这个项目做出贡献的开发者！
+如有问题或建议，请通过Issue联系。
 
 ---
 
-⭐ 如果这个项目对你有帮助，请给它一个星标！
+**注意**: 使用前请根据实际环境修改配置文件中的路径和参数设置。

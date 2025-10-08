@@ -44,16 +44,16 @@ class RegexCache:
 # 全局正则表达式缓存
 regex_cache = RegexCache()
 
-# 预编译常用正则表达式
-PATTERNS = {
-    'work_report': regex_cache.get_pattern(r'.*工作日报(\d+).txt'),
-    'filter_str': regex_cache.get_pattern(r'.*【([\w、]*)-?(.*)】【(\w{2,3})[:：]?([\w\s?]*)\[?(\w*)-?(\w*)\]?】(.*)'),
-    'comment': regex_cache.get_pattern(r'^\*\*[\s]*(.*)'),
-    'type_group': regex_cache.get_pattern(r'【(.*)】'),
-    'numbered_line': regex_cache.get_pattern(r'\s?\d{1,2}\.'),
-    'clean_desc': regex_cache.get_pattern(r'(\w*)[\.:：。\?？]?'),
-    'bracket_clean': regex_cache.get_pattern(r'【.*】')
-}
+# 预编译常用正则表达式 - 从配置文件读取
+@lru_cache(maxsize=1)
+def get_patterns():
+    """从配置文件获取正则表达式模式"""
+    patterns = {}
+    for key, pattern in constants.REGEX_PATTERNS.items():
+        patterns[key] = regex_cache.get_pattern(pattern)
+    return patterns
+
+PATTERNS = get_patterns()
 
 # 缓存配置数据
 config, smartwork_config = _get_cached_config()
@@ -80,10 +80,13 @@ CONFIG_VALUES = {
 
 keys_list = list(CONFIG_VALUES.values())
 ISSUES = dict(config['issue-types'])
-DEFAULT_SOLVED_TIME = 2
-DEFAULT_SOLVED_STATUS = 'Closed'
-DEFAULT_SOLVED_COUNTRY = 'DE'
-DEFAULT_SOLVED_OWNER = '孙奥'
+
+# 使用配置文件中的默认值
+DEFAULT_SOLVED_TIME = constants.DEFAULT_VALUES['solved_time']
+DEFAULT_SOLVED_STATUS = constants.DEFAULT_VALUES['solved_status']
+DEFAULT_SOLVED_COUNTRY = constants.DEFAULT_VALUES['solved_country']
+DEFAULT_SOLVED_OWNER = constants.DEFAULT_VALUES['solved_owner']
+DEFAULT_REGION = constants.DEFAULT_VALUES['region']
 
 # 预计算键名映射，避免重复inspect调用
 @lru_cache(maxsize=32)
@@ -177,7 +180,7 @@ def do_count(smart_dict, report_dict, path):
                         PATTERNS['clean_desc'].sub(r'\1', filtered_list[6]).strip(),
                         '',
                         check_origin(filtered_list),
-                        '欧洲区',
+                        DEFAULT_REGION,
                         DEFAULT_SOLVED_OWNER,
                         '',
                         ISSUES[str(filtered_list[5]).lower()]
@@ -212,27 +215,29 @@ def do_count(smart_dict, report_dict, path):
 
 def generate_time(filtered_list):
     """
-    生成工作时长(默认)
+    生成工作时长 - 从配置文件读取
     @param filtered_list: 通过正则过滤后的列表 
     """
-    
     q_type = filtered_list[0]
     q_desc = filtered_list[6]
+    time_config = constants.TIME_CONFIG
+    
     if '案例输出' in q_type:
         if 'sg-auto' in q_desc:
-            return 4
-        return 3
+            return time_config['base_auto_hours']
+        return time_config['case_output_hours']
     if '灰度升级部署' in q_type:
-        return 1
+        return time_config['gray_upgrade_hours']
     if 'IT数据查询' in q_type:
-        return 1
+        return time_config['it_query_hours']
     if '业务咨询问题' in q_type:
-        return 1
+        return time_config['business_consultation_hours']
     if '告警' in q_type:
-        return 1
+        return time_config['alarm_hours']
     if '变更实施' in q_type:
-        return 3 
-    return 2
+        return time_config['change_implementation_hours']
+    
+    return time_config['default_hours']
 def check_origin(filtered_list):
     country_map = constants.COUNTRY_MAP
     if filtered_list[2].upper() != 'SG':

@@ -17,14 +17,14 @@ from functools import lru_cache
 from util.common_tools import print_pro
 from base import constants
 
-# 使用frozenset提高查找性能
-convertfiletypes = frozenset([
-    ".xml",
-    ".lua", 
-    ".csd",
-    ".py",
-    ".txt"
-])
+# 从配置文件读取支持的文件类型
+@lru_cache(maxsize=1)
+def get_supported_file_types():
+    """从配置文件获取支持的文件类型"""
+    from base import constants
+    return frozenset(constants.FILE_CONFIG['supported_types'])
+
+convertfiletypes = get_supported_file_types()
 
 
 @lru_cache(maxsize=1024)
@@ -74,7 +74,8 @@ def convert_encoding_to_utf_8(filename):
             stats.unknown_cnt += 1
             return
         
-        if source_encoding not in ('utf-8', 'UTF-8-SIG'):
+        target_encoding = constants.FILE_CONFIG['encoding']
+        if source_encoding not in (target_encoding, 'UTF-8-SIG'):
             content = content.decode(source_encoding, 'ignore')
             with open(filename, 'w', encoding='UTF-8-SIG') as f:
                 f.write(content)

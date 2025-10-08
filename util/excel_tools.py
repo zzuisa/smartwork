@@ -49,26 +49,34 @@ def chr2index(c):
 
 def smart_width_and_height(ws, _row, _list: list, spec_column: None):
     """
-    智能调整单元格宽度和高度
+    智能调整单元格宽度和高度 - 从配置文件读取
     @param ws: 当前操作的worksheet
     @param _row: 当前操作的单元格给所在的行
     @param _list: 当前传入的数据
     @param spec_column: 需要特殊处理的列(字符比较长的列)
     @return 
     """
+    excel_config = constants.EXCEL_CONFIG
+    
     for _index, _ in enumerate(_list):
-        ws.column_dimensions[chr(_index+65).upper()].width = 14.67 if ws.column_dimensions[chr(
-            _index+65).upper()].width < 14.67 else ws.column_dimensions[chr(_index+65).upper()].width
+        default_width = excel_config['default_width']
+        max_width = excel_config['max_width']
+        
+        ws.column_dimensions[chr(_index+65).upper()].width = default_width if ws.column_dimensions[chr(
+            _index+65).upper()].width < default_width else ws.column_dimensions[chr(_index+65).upper()].width
         if len(str(_)) > 30:
             ws.column_dimensions[chr(_index+65).upper()
-                                 ].width = 22.5 + (len(str(_))/9) * 3
+                                 ].width = max_width + (len(str(_))/9) * 3
 
     # 根据content和desc中的内容调整单元格高度
-    tar_height = 16 + 5 * (int(len(_list[chr2index(spec_column)])/7)+1) + \
+    row_height = excel_config['row_height']
+    header_height = excel_config['header_height']
+    
+    tar_height = row_height + 5 * (int(len(_list[chr2index(spec_column)])/7)+1) + \
         '\n'.join(map(str, _list)).count('\n') * 1
 
     ws.row_dimensions[_row].height = tar_height
-    ws.row_dimensions[1].height = 30
+    ws.row_dimensions[1].height = header_height
 
 
 def set_filter_and_sort(ws, _all_list: list):
@@ -151,8 +159,9 @@ def batch_insert_report(ws, _list, pos=[1, 1], spec_column=None, mode=0, _vertic
     if not simple_mode:
         smart_width_and_height(ws, row, _list, spec_column)
     if spec_column is not None and not simple_mode:
-        ws.column_dimensions[spec_column].width = 85
-        ws.column_dimensions[chrstep(spec_column, -1)].width = 35
+        excel_config = constants.EXCEL_CONFIG
+        ws.column_dimensions[spec_column].width = excel_config['spec_column_width']
+        ws.column_dimensions[chrstep(spec_column, -1)].width = excel_config['prev_column_width']
     
     if mode == 0:
         for index, value in enumerate(_list):
