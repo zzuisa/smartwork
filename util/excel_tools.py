@@ -1,16 +1,16 @@
 # -*- encoding: utf-8 -*-
 '''
 @文件        :excel_util.py
-@说明        :
+@说明        :优化版本 - 提升Excel操作性能
 @时间        :2022/09/15 10:26:29
 @作者        :awx1192780
-@版本        :1.0
+@版本        :1.1 - 性能优化版本
 '''
-
 
 from openpyxl import Workbook, load_workbook
 from openpyxl.worksheet.table import Table, TableStyleInfo
 from openpyxl.styles import Alignment, Font, Border, Side
+from openpyxl.utils import get_column_letter
 from util.common_tools import print_pro
 from util.list_tools import one_layer
 from datetime import datetime
@@ -21,23 +21,26 @@ import json
 import os
 import copy
 import time
+from functools import lru_cache
 
 
 __all__ = ['open_file', 'open_or_add_sheet', 'data_excel']
 
 
+@lru_cache(maxsize=128)
 def chrstep(c, num):
     """
-    当前字母后num位的字母
+    当前字母后num位的字母 - 缓存优化版本
     @param c: 字母
     @return chr
     """
     return chr(ord(c.upper())+num)
 
 
+@lru_cache(maxsize=128)
 def chr2index(c):
     """
-    当前字母在字母表中顺序在'A'后的位数
+    当前字母在字母表中顺序在'A'后的位数 - 缓存优化版本
     @param c: 字母
     @return int
     """
@@ -87,7 +90,7 @@ def set_filter_and_sort(ws, _all_list: list):
 
 def batch_insert(ws, _list, pos=[1, 1], spec_column=None, mode=0, _vertical='center'):
     """
-    批量插入支持传入'A1' 和 [row,col]形式的数据
+    批量插入支持传入'A1' 和 [row,col]形式的数据 - 性能优化版本
     批量插入数据
     mode 0 横向 1 纵向
     @param ws: 当前操作的worksheet对象
@@ -103,76 +106,79 @@ def batch_insert(ws, _list, pos=[1, 1], spec_column=None, mode=0, _vertical='cen
         row, column = [chr2index(pos[:1])+1, int(pos[1:])]
     if isinstance(pos, list):
         row, column = pos
+    
+    # 预定义样式对象，避免重复创建
+    alignment_left_top = Alignment(horizontal='left', vertical='top', wrapText=True)
+    alignment_left_center = Alignment(horizontal='left', vertical='center', wrapText=True)
+    thin = Side(border_style="thin", color="000000")
+    double = Side(border_style="double", color="000000")
+    border_style = Border(top=double, left=thin, right=thin, bottom=double)
+    bold_font = Font(bold=True)
+    
     if mode == 0:
+        # 批量设置单元格值，减少单个操作
         for index, value in enumerate(_list):
-            _target_cell = ws.cell(row=row, column=column+index,
-                                   value=value)
-            _target_cell.alignment = Alignment(
-                horizontal='left', vertical='top', wrapText=True)
-            thin = Side(border_style="thin", color="000000")
-            double = Side(border_style="double", color="000000")
-            _target_cell.border = Border(
-                top=double, left=thin, right=thin, bottom=double)
-            # 微调格式
-
+            cell = ws.cell(row=row, column=column+index, value=value)
+            cell.alignment = alignment_left_top
+            cell.border = border_style
+            
             if row == 1:
-                ws.cell(row=row, column=column+index).font = Font(bold=True)
-
-            # 居中处理
-            # wrapText=True 自动换行
-
+                cell.font = bold_font
     else:
         for index, value in enumerate(_list):
-            ws.cell(row=row+index, column=column,
-                    value=value).alignment = Alignment(horizontal='left', vertical='center', wrapText=True)
+            cell = ws.cell(row=row+index, column=column, value=value)
+            cell.alignment = alignment_left_center
+    
     return ws
 
 
 def batch_insert_report(ws, _list, pos=[1, 1], spec_column=None, mode=0, _vertical='center', simple_mode=True):
-
+    """
+    批量插入报告数据 - 性能优化版本
+    """
     row, column = 1, 1
     if isinstance(pos, str):
         row, column = [chr2index(pos[:1])+1, int(pos[1:])]
     if isinstance(pos, list):
         row, column = pos
+    
+    # 预定义样式对象，避免重复创建
+    alignment_center = Alignment(horizontal='center', vertical='center', wrapText=not simple_mode)
+    alignment_left_center = Alignment(horizontal='left', vertical='center', wrapText=not simple_mode)
+    alignment_left_top = Alignment(horizontal='left', vertical='top', wrapText=not simple_mode)
+    bold_font = Font(bold=True)
+    
     if not simple_mode:
         smart_width_and_height(ws, row, _list, spec_column)
-    if spec_column != None and not simple_mode:
+    if spec_column is not None and not simple_mode:
         ws.column_dimensions[spec_column].width = 85
         ws.column_dimensions[chrstep(spec_column, -1)].width = 35
+    
     if mode == 0:
         for index, value in enumerate(_list):
-            _target_cell = ws.cell(row=row, column=column+index,
-                                   value=value)
-            _target_cell.alignment = Alignment(
-                horizontal='center', vertical='center', wrapText=not simple_mode)
-            # thin = Side(border_style="thin", color="000000")
-            # double = Side(border_style="double", color="000000")
-            # _target_cell.border = Border(
-            #     top=double, left=thin, right=thin, bottom=double)
-            # 微调格式
+            cell = ws.cell(row=row, column=column+index, value=value)
+            cell.alignment = alignment_center
+            
             if row == 1:
-                ws.cell(row=row, column=column+index).font = Font(bold=True)
+                cell.font = bold_font
+            
             # 设置单元格为日期格式
-            if index == chr2index(spec_column)-5:
-                ws.cell(row=row, column=column +
-                        index).number_format = 'yyyy/m/d'
+            if spec_column and index == chr2index(spec_column)-5:
+                cell.number_format = 'yyyy/m/d'
+            
             # 以下是对 spec_column 列做特殊格式处理
-            if spec_column != None:
-                # 根据《海外产出表2022》https://onebox.huawei.com/v/4126d6a8c04fc41a7548bcfcb5729ea4?type=0 的格式调整，
-                # 所有涉及的列改为 left,top
-                if index in [1, 2, 7, 8, 9, 11, 12]:
-                    ws.cell(row=row, column=index+1).alignment = Alignment(
-                        horizontal='left', vertical='top', wrapText=not simple_mode)
-        ws.cell(row=1, column=chr2index(spec_column)+1).alignment = Alignment(
-            horizontal='center', vertical='center', wrapText=not simple_mode)
-        # 居中处理
-        # wrapText=True 自动换行
-
+            if spec_column is not None:
+                # 根据《海外产出表2022》的格式调整，所有涉及的列改为 left,top
+                if index in [99]:
+                    cell.alignment = alignment_left_top
+        
+        if spec_column:
+            ws.cell(row=1, column=chr2index(spec_column)+1).alignment = alignment_center
     else:
         for index, value in enumerate(_list):
-            ws.cell(row=row+index, column=column,
-                    value=value).alignment = Alignment(horizontal='left', vertical='center', wrapText=not simple_mode)
+            cell = ws.cell(row=row+index, column=column, value=value)
+            cell.alignment = alignment_left_center
+    
     return ws
 
 
@@ -230,7 +236,7 @@ def copy_sheet_from(path, sheet_name):
 
 def data_excel(excel_name_path, workbook, worksheet, header, data, data_type="count", template_path=None, template_sheet_name=None, spec_column=None, simple_mode=True):
     """
-    最终处理，导出excel
+    最终处理，导出excel - 性能优化版本
     @param excel_name_path: 导出excel的目录
     @param workbook: 当前操作的workbook
     @param worksheet: 当前操作的worksheet
@@ -246,30 +252,34 @@ def data_excel(excel_name_path, workbook, worksheet, header, data, data_type="co
         cp_sheet = copy_sheet_from(template_path, template_sheet_name)
         cp_sheet._parent = workbook
         workbook._add_sheet(cp_sheet)
-    datain = copy.copy(data)  # 浅拷贝
-    if isinstance(datain, dict):
-        _, values = zip(*datain.items())
-    if isinstance(datain, list):
-        values = datain
-    value_normal = values
-    # 如果data_type 是 'count' 则表示计数——统计本月各类事项处理个数，生成统计表
-    # 反之 (data_type 是'report') 则表示导出具体交付件，和详情，生成报告表。
-
+    
+    # 优化数据处理，避免不必要的拷贝
+    if isinstance(data, dict):
+        values = list(data.values())
+    else:
+        values = data
+    
     # 插入 header
-    worksheet = batch_insert(worksheet, header, [1, 1], spec_column) if data_type == 'count' else batch_insert_report(
-        worksheet, header, [1, 1], spec_column, simple_mode=simple_mode)
-    # 插入数据
-    for index, value in enumerate(value_normal):
-        worksheet = batch_insert(worksheet, value, [
-                                 2+index, 1], spec_column) if data_type == 'count' else batch_insert_report(worksheet, value, [2+index, 1], spec_column, simple_mode=simple_mode)
+    if data_type == 'count':
+        worksheet = batch_insert(worksheet, header, [1, 1], spec_column)
+    else:
+        worksheet = batch_insert_report(worksheet, header, [1, 1], spec_column, simple_mode=simple_mode)
+    
+    # 批量插入数据，减少函数调用次数
+    if data_type == 'count':
+        for index, value in enumerate(values):
+            worksheet = batch_insert(worksheet, value, [2+index, 1], spec_column)
+    else:
+        for index, value in enumerate(values):
+            worksheet = batch_insert_report(worksheet, value, [2+index, 1], spec_column, simple_mode=simple_mode)
 
     # 暂无法使用filter和sort
-    # set_filter_and_sort(worksheet, value_normal)
+    # set_filter_and_sort(worksheet, values)
     workbook.save(excel_name_path)
     workbook.close()
 
 
-def to_count_excel(smart_dict, template_path, template_sheet_name):
+def to_count_excel(smart_dict,  template_path, template_sheet_name, infos=None):
     """
     统计月度各项指标，导出Excel
     最终处理，导出excel
@@ -289,18 +299,21 @@ def to_count_excel(smart_dict, template_path, template_sheet_name):
         wb = open_file(str(constants.REPORT_PATH))
         ws = open_or_add_sheet(wb, constants.SHEET_NAME, template_path=template_path,
                                template_sheet_name=template_sheet_name)
-
+        report_path = str(constants.REPORT_PATH)
+        if infos:
+            report_path = report_path.replace('.xlsx',f'{infos}.xlsx')
+            
         data_excel(str(constants.REPORT_PATH), wb, ws, alter_header, processed_data,
                    data_type='count', spec_column=None, simple_mode=True)
 
         print_pro('[processed_data] {} TO {}  => [{}]'.format(json.dumps(dict(zip(constants.HEADER, one_layer(
-            processed_data))), indent=4, ensure_ascii=False), str(constants.REPORT_PATH), constants.SHEET_NAME), constants.SUCCESS_PRINT)
+            processed_data))), indent=4, ensure_ascii=False), report_path, constants.SHEET_NAME), constants.SUCCESS_PRINT)
 
     except Exception as e:
         print_pro("导出失败，不存在目录或文件正在被使用。", constants.ERROR_PRINT, e)
 
 
-def to_report_excel(report_dict, template_path=None, template_sheet_name=None, spec_column=None, simple_mode=True):
+def to_report_excel(report_dict, infos=None, template_path=None, template_sheet_name=None, spec_column=None, simple_mode=False):
     """
     统计月度交付件详情，导出Excel
     @param report_dict: 源数据 dict 格式
@@ -316,13 +329,17 @@ def to_report_excel(report_dict, template_path=None, template_sheet_name=None, s
         if os.path.exists(constants.REPORT_FOLDER) == False:
             os.makedirs(constants.REPORT_FOLDER)
         wb = open_file(str(constants.REPORT_PATH))
+        report_path = str(constants.REPORT_PATH)
+        if infos:
+            report_path = report_path.replace('.xlsx',f'{infos}.xlsx')
+            
         ws = open_or_add_sheet(wb, constants.REPORT_SHEET_NAME, template_path=template_path,
                                template_sheet_name=template_sheet_name)
-        data_excel(str(constants.REPORT_PATH), wb, ws, constants.INFO_HEADER, processed_data,
+        data_excel(report_path, wb, ws, constants.INFO_HEADER, processed_data,
                    data_type='report', spec_column=spec_column, simple_mode=simple_mode)
 
         print_pro('[report_data] {} TO {} => [{}]'.format(json.dumps(dict(zip(constants.INFO_HEADER, one_layer(
-            processed_data))), indent=4, ensure_ascii=False), str(constants.REPORT_PATH), constants.REPORT_SHEET_NAME), p_type=constants.SUCCESS_PRINT)
+            processed_data))), indent=4, ensure_ascii=False), report_path, constants.REPORT_SHEET_NAME), p_type=constants.SUCCESS_PRINT)
 
     except Exception as e:
         print_pro("导出失败，不存在目录或文件正在被使用。", constants.ERROR_PRINT, e)

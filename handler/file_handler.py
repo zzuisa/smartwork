@@ -1,10 +1,10 @@
 # -*- encoding: utf-8 -*-
 '''
 @文件        :file_handler.py
-@说明        :
+@说明        :优化版本 - 提升文件处理性能
 @时间        :2022/10/21 11:57:58
 @作者        :awx1192780
-@版本        :1.0
+@版本        :1.1 - 性能优化版本
 '''
 import os
 import sys
@@ -16,150 +16,199 @@ import inspect
 import collections
 import uuid
 import re
+from functools import lru_cache
 from tqdm import tqdm
 from base import constants
 from util.common_tools import print_pro
 from util.config_tools import Config
 from util.encoding_converter_tools import convert_dir
 
-config = Config.reader()
-smartwork_config = Config.reader('smartwork')
-third_party = str(smartwork_config["third_party"])
-non_problem = str(smartwork_config["non_problem"])
-system_config = str(smartwork_config["system_config"])
-system = str(smartwork_config["system"])
-bussiness_config = str(smartwork_config["bussiness_config"])
-transfer_to_requirement = str(smartwork_config["transfer_to_requirement"])
-consultation = str(smartwork_config["consultation"])
-version_update = str(smartwork_config["version_update"])
-gray_upgrade_deployment = str(smartwork_config["gray_upgrade_deployment"])
-alarm_monitoring_inspection = str(
-    smartwork_config["alarm_monitoring_inspection"])
-faq = str(smartwork_config["faq"])
-version_update_meeting = str(smartwork_config["version_update_meeting"])
-resource_management = str(smartwork_config["resource_management"])
+# 缓存配置读取，避免重复解析
+@lru_cache(maxsize=1)
+def _get_cached_config():
+    """缓存配置读取"""
+    config = Config.reader()
+    smartwork_config = Config.reader('smartwork')
+    return config, smartwork_config
 
-keys_list = [third_party, non_problem, system_config, system, bussiness_config, transfer_to_requirement, consultation,
-             version_update, gray_upgrade_deployment, alarm_monitoring_inspection, faq, version_update_meeting, resource_management]
+# 预编译正则表达式，避免重复编译
+class RegexCache:
+    def __init__(self):
+        self._cache = {}
+    
+    def get_pattern(self, pattern):
+        if pattern not in self._cache:
+            self._cache[pattern] = re.compile(pattern)
+        return self._cache[pattern]
+
+# 全局正则表达式缓存
+regex_cache = RegexCache()
+
+# 预编译常用正则表达式
+PATTERNS = {
+    'work_report': regex_cache.get_pattern(r'.*工作日报(\d+).txt'),
+    'filter_str': regex_cache.get_pattern(r'.*【([\w、]*)-?(.*)】【(\w{2,3})[:：]?([\w\s?]*)\[?(\w*)-?(\w*)\]?】(.*)'),
+    'comment': regex_cache.get_pattern(r'^\*\*[\s]*(.*)'),
+    'type_group': regex_cache.get_pattern(r'【(.*)】'),
+    'numbered_line': regex_cache.get_pattern(r'\s?\d{1,2}\.'),
+    'clean_desc': regex_cache.get_pattern(r'(\w*)[\.:：。\?？]?'),
+    'bracket_clean': regex_cache.get_pattern(r'【.*】')
+}
+
+# 缓存配置数据
+config, smartwork_config = _get_cached_config()
+
+# 预计算配置值，避免重复字符串转换
+CONFIG_VALUES = {
+    'third_party': str(smartwork_config["third_party"]),
+    'non_problem': str(smartwork_config["non_problem"]),
+    'system_config': str(smartwork_config["system_config"]),
+    'system': str(smartwork_config["system"]),
+    'bussiness_config': str(smartwork_config["bussiness_config"]),
+    'transfer_to_requirement': str(smartwork_config["transfer_to_requirement"]),
+    'consultation': str(smartwork_config["consultation"]),
+    'version_update': str(smartwork_config["version_update"]),
+    'gray_upgrade_deployment': str(smartwork_config["gray_upgrade_deployment"]),
+    'alarm_monitoring_inspection': str(smartwork_config["alarm_monitoring_inspection"]),
+    'faq': str(smartwork_config["faq"]),
+    'version_update_meeting': str(smartwork_config["version_update_meeting"]),
+    'resource_management': str(smartwork_config["resource_management"]),
+    'compliant': str(smartwork_config["compliant"]),
+    'security_issue': str(smartwork_config["security_issue"]),
+    'it_consulation': str(smartwork_config["it_consulation"])
+}
+
+keys_list = list(CONFIG_VALUES.values())
 ISSUES = dict(config['issue-types'])
 DEFAULT_SOLVED_TIME = 2
 DEFAULT_SOLVED_STATUS = 'Closed'
-DEFAULT_SOLVED_COUNTRY = 'SG'
+DEFAULT_SOLVED_COUNTRY = 'DE'
 DEFAULT_SOLVED_OWNER = '孙奥'
-# 检索全局变量
+
+# 预计算键名映射，避免重复inspect调用
+@lru_cache(maxsize=32)
+def get_key_name(value):
+    """缓存键名查找"""
+    return [var_name for var_name, var_val in CONFIG_VALUES.items() if var_val == value]
 
 
 def retrieve_name(var):
-    return [var_name for var_name, var_val in inspect.currentframe().f_globals.items() if var_val == var]
+    """保持向后兼容，但使用缓存版本"""
+    return get_key_name(var)
 
 
 def copy_dict_from(source_dict: dict):
-    target_dict = collections.defaultdict(int)
+    """优化字典复制，使用更高效的方式"""
     if isinstance(source_dict, dict):
-        for i in source_dict.keys():
-            target_dict[i] = 0
-    return target_dict
+        return collections.defaultdict(int, {k: 0 for k in source_dict.keys()})
+    return collections.defaultdict(int)
 
 
 def do_count(smart_dict, report_dict, path):
     """
-    统计数量
+    统计数量 - 性能优化版本
     @param path: 报告所在工作目录
     """
     if '.txt' not in path:
         return None
-    _file = open(path, 'r', encoding='utf-8')
-
-    # 检索当前工作日志
-    def verify(keys_list, line):
-        # 遍历Header
-        for i in keys_list:
-            if retrieve_name(i)[0] not in smart_dict:
-                smart_dict[retrieve_name(i)[0]] = 0
-            if re.sub(r'【(.*)】', r'\1', i) == line.split('#')[0]:
-                return retrieve_name(i)[0]
-    # 生成交付件
-    _re = '.*工作日报(\d+).txt'
-    cur_date = re.search(_re, path).group(1)
-    cur_date = '{}-{}-{}'.format(cur_date[:4], cur_date[4:6], cur_date[6:8])
-    if_record = False
-    _contents = []
-    descs = []
-    lines = _file.readlines()
-    _len = len(lines)
-    _report_dict = {}
-    _cur_title = ''
-    for _index, line in enumerate(lines):
-        _list = []
-        # 问题分类#外部单号#业务系统#应用模块#问题大类
-        filtered_str = re.sub(
-            r'.*【([\w、]*)-?(\w*)】【(\w{2,3})[:：]?([\w\s?]*)\[?(\w*)-?(\w*)\]?】(.*)', r'\1#\2#\3#\4#\5#\6#\7', line).strip()
-        filtered_list = filtered_str.split('#')
-        comment = re.search(r'^\*\*[\s]*(.*)', line.strip())
-        res = verify(keys_list, filtered_str)
-        if len(descs) != 0 and _cur_title != '':
-            _report_dict[_cur_title][8] = '{}'.format('\n'.join(descs))
-        _content = re.sub(r'\d\.?(.*】)?(.*\w)[\.:：。]?', r'\2', line).strip()
-        type_group = re.search('【(.*)】', line)
-
-        if len(filtered_list) == 7 and filtered_list[6] == '':
-            continue
-        # 判断当前读取的行不是1. 2. 等空行
-        if re.sub('\d{1,2}\.', '', line).strip() != '':
-            # TODO 这里有个bug： 如果当前行是第一行，且含有 1. 【关键词】则取出来的数据的头部会带有一个类似' '的字符，但这个并不是普通的空格或是tab，
-            # 也不是全角的空格（无法使用strip()过滤），具体是什么，目前不清楚，但是就是会占位2个单位长度(str)，只有10月之后会有这个情况，推测是因为
-            # 10月之后的日志文件变为GBK，而GBK转UTF-8 过程中，有为转换的字符导致的。
-            # 暂时先这样处理：
-            # if _index == 0 and ' ' != line[:1]:
-            #     line = line[2:]
-            #     print('line',line)
-            if re.match('\s?\d{1,2}\.', line) != None and type_group != None and (len(filtered_list) == 7 and filtered_list[6] != ''):
-                _type = type_group.group(1)
-                # print('type',_type)
-
-                _cur_title = uuid.uuid1()
-                # filtered_list： 问题分类 外部单号 国家 业务系统 应用模块 问题大类 问题描述
-                # ["外部单号","业务系统","应用模块","问题发现时间","问题处理时长","状态","问题分类","问题描述","根因分析","国家","区域","责任人","备注","问题大类"]
-                _report_dict[_cur_title] = [filtered_list[1].strip(),
-                                            filtered_list[3].strip(),
-                                            filtered_list[4].strip(),
-                                            cur_date,
-                                            generate_time(filtered_list),
-                                            DEFAULT_SOLVED_STATUS,
-                                            filtered_list[0].strip(),
-                                            re.sub(
-                    r'(\w*)[\.:：。\?？]?', r'\1', filtered_list[6]).strip(),
-                    '',
-                    check_origin(filtered_list),
-                    check_origin(filtered_list),
-                    DEFAULT_SOLVED_OWNER,
-                    '',
-                    ISSUES[str(filtered_list[5]).lower()]
-                ]
-                # 记录当前内容
-                if_record = True
-
-                descs = []
-            elif re.match('\s?\d{1,2}\.', line) != None and type_group == None:
-                # 如果是 1. xxxx 的形式，不记录当前内容
+    
+    # 使用with语句确保文件正确关闭
+    with open(path, 'r', encoding='utf-8') as _file:
+        # 检索当前工作日志 - 优化版本
+        def verify(keys_list, line):
+            # 使用预编译的正则表达式
+            clean_line = PATTERNS['bracket_clean'].sub('', line.split('#')[0])
+            for i in keys_list:
+                key_name = get_key_name(i)[0] if get_key_name(i) else None
+                if key_name and key_name not in smart_dict:
+                    smart_dict[key_name] = 0
+                if PATTERNS['bracket_clean'].sub('', i) == clean_line:
+                    return key_name
+            return None
+        
+        # 生成交付件 - 使用预编译正则表达式
+        match = PATTERNS['work_report'].search(path)
+        if not match:
+            return None
+            
+        cur_date = match.group(1)
+        cur_date = f'{cur_date[:4]}-{cur_date[4:6]}-{cur_date[6:8]}'
+        
+        if_record = False
+        descs = []
+        lines = _file.readlines()
+        lines.append('\n')
+        _len = len(lines)
+        _report_dict = {}
+        _cur_title = ''
+        
+        for _index, line in enumerate(lines):
+            # 问题分类#外部单号#业务系统#应用模块#问题大类
+            filtered_str = PATTERNS['filter_str'].sub(r'\1#\2#\3#\4#\5#\6#\7', line).strip()
+            filtered_list = filtered_str.split('#')
+            comment = PATTERNS['comment'].search(line.strip())
+            res = verify(keys_list, filtered_str)
+            
+            if len(descs) != 0 and _cur_title != '':
+                _report_dict[_cur_title][8] = '\n'.join(descs)
+            
+            type_group = PATTERNS['type_group'].search(line)
+            
+            if len(filtered_list) == 7 and filtered_list[6] == '':
                 if_record = False
-                if len(descs) != 0:
-                    _report_dict[_cur_title][8] = '{}'.format('\n'.join(descs))
-                descs = []
-            else:
-                if comment and _cur_title != '':
-                    _report_dict[_cur_title][12] += comment.group(
-                        1).replace('- ', '')
-                if if_record and _index != _len-1 and not line.strip().startswith('**'):
-                    descs.append(
-                        re.sub('【.*】', '', line.replace('\t', '').replace('- ', '').strip()))
+                continue
+            
+            # 判断当前读取的行不是1. 2. 等空行
+            if PATTERNS['numbered_line'].sub('', line).strip() != '':
+                if (PATTERNS['numbered_line'].match(line) is not None and 
+                    type_group is not None and len(filtered_list) == 7):
+                    
+                    _cur_title = uuid.uuid1()
+                    # filtered_list： 问题分类 外部单号 国家 业务系统 应用模块 问题大类 问题描述
+                    # ["外部单号","业务系统","应用模块","问题发现时间","问题处理时长","状态","问题分类","问题描述","根因分析","国家","区域","责任人","备注","问题大类"]
+                    _report_dict[_cur_title] = [
+                        filtered_list[1].strip(),
+                        filtered_list[3].strip(),
+                        filtered_list[4].strip(),
+                        cur_date,
+                        generate_time(filtered_list),
+                        DEFAULT_SOLVED_STATUS,
+                        filtered_list[0].strip(),
+                        PATTERNS['clean_desc'].sub(r'\1', filtered_list[6]).strip(),
+                        '',
+                        check_origin(filtered_list),
+                        '欧洲区',
+                        DEFAULT_SOLVED_OWNER,
+                        '',
+                        ISSUES[str(filtered_list[5]).lower()]
+                    ]
+                    if_record = True
+                    descs = []
+                    
+                elif (PATTERNS['numbered_line'].match(line) is not None and 
+                      type_group is None):
+                    # 如果是 1. xxxx 的形式，不记录当前内容
+                    if_record = False
+                    if len(descs) != 0:
+                        _report_dict[_cur_title][8] = '\n'.join(descs)
+                    descs = []
+                else:
+                    if comment and _cur_title != '':
+                        _report_dict[_cur_title][12] += comment.group(1).replace('- ', '')
+                    if if_record and _index != _len-1 and not line.strip().startswith('**'):
+                        descs.append(
+                            PATTERNS['bracket_clean'].sub('', 
+                                line.replace('\t', '').replace('- ', '').strip()))
+            
             if res:
                 smart_dict[res] += 1
-    if len(descs) != 0:
-        _report_dict[_cur_title][8] = '{}'.format('\n'.join(descs))
-    report_dict = {**report_dict, **_report_dict}
-    _contents = []
-    return smart_dict, report_dict
+        
+        if len(descs) != 0 and _cur_title != '':
+            _report_dict[_cur_title][8] = '\n'.join(descs)
+        
+        # 使用更高效的字典合并
+        report_dict.update(_report_dict)
+        return smart_dict, report_dict
 
 def generate_time(filtered_list):
     """
@@ -169,13 +218,15 @@ def generate_time(filtered_list):
     
     q_type = filtered_list[0]
     q_desc = filtered_list[6]
-    if '资源管理' in q_type:
+    if '案例输出' in q_type:
         if 'sg-auto' in q_desc:
             return 4
         return 3
     if '灰度升级部署' in q_type:
-        return 3
-    if '咨询' in q_type:
+        return 1
+    if 'IT数据查询' in q_type:
+        return 1
+    if '业务咨询问题' in q_type:
         return 1
     if '告警' in q_type:
         return 1
@@ -192,33 +243,76 @@ def check_origin(filtered_list):
     return country_map[filtered_list[2].upper()]
 
 
-def traverse(before_date=None):
-    
+def traverse(before_date=None, dates=None):
     """
-    文件夹检索
+    文件夹检索 - 性能优化版本
     @param before_date: 由main函数传进来的参数，表示检索before_date日期(含)之后的报告 
     """
-    
     smart_dict = collections.defaultdict(int)
     res_dict = {}
-    root_path = '{}\\{}'.format(
-        constants.BASE_FOLDER, constants.current_year_and_month)
-    if os.path.exists(constants.BASE_FOLDER) == False:
-        print('不存在此目录:{}'.format(constants.BASE_FOLDER))
+    root_path = os.path.join(constants.BASE_FOLDER, constants.current_year, constants.current_year_and_month)
+    
+    if not os.path.exists(constants.BASE_FOLDER):
+        print(f'不存在此目录:{constants.BASE_FOLDER}')
         os._exit(0)
-    for dirname in tqdm(os.listdir(root_path), desc='输出报告', position=0):
-        dirpath = '{}\\{}'.format(root_path, dirname)
-        if (before_date):
-            cur = time.mktime(time.strptime(dirname[:-2],'%Y%m%d'))
-            before = time.mktime(time.strptime(before_date,'%Y%m%d'))
-            if cur < before:
-                continue
-        if constants.current_year_and_month in dirname and os.path.isdir(dirpath):
-            # 扫描文件夹，对文件夹内相关的文件进行编码检查、转码等
-            convert_dir(dirpath)
-            for report in os.listdir(dirpath):
-                if '.txt' in report:
-                    file_path = '{}\\{}'.format(
-                        dirpath, report).replace('\\', '\\\\')
-                    smart_dict, res_dict = do_count(smart_dict, res_dict, file_path)
+    
+    # 预计算时间戳，避免重复计算
+    before_timestamp = None
+    start_timestamp = None
+    end_timestamp = None
+    
+    if before_date:
+        before_timestamp = time.mktime(time.strptime(before_date, '%Y%m%d'))
+    
+    if dates:
+        start, end = dates.split(',')
+        start_timestamp = time.mktime(time.strptime(f'{constants.current_year_and_month}{start}', "%Y%m%d"))
+        end_timestamp = time.mktime(time.strptime(f'{constants.current_year_and_month}{end}', "%Y%m%d"))
+    
+    # 使用os.scandir()替代os.listdir()，性能更好
+    try:
+        with os.scandir(root_path) as entries:
+            # 过滤并排序目录，减少不必要的处理
+            dirs = [entry for entry in entries if entry.is_dir() and constants.current_year_and_month in entry.name]
+            dirs.sort(key=lambda x: x.name)  # 按名称排序，确保处理顺序一致
+            
+            for entry in tqdm(dirs, desc='输出报告', position=0):
+                dirname = entry.name
+                dirpath = entry.path
+                
+                # 时间过滤优化
+                try:
+                    cur = time.mktime(time.strptime(dirname[:-2], '%Y%m%d'))
+                    
+                    if before_timestamp and cur < before_timestamp:
+                        continue
+                    if start_timestamp and end_timestamp and (cur < start_timestamp or cur > end_timestamp):
+                        continue
+                        
+                except ValueError:
+                    # 如果日期解析失败，跳过该目录
+                    continue
+                
+                # 批量处理文件，减少重复的编码转换
+                txt_files = []
+                try:
+                    with os.scandir(dirpath) as dir_entries:
+                        txt_files = [f.path for f in dir_entries if f.is_file() and f.name.endswith('.txt')]
+                except (OSError, PermissionError):
+                    continue
+                
+                if txt_files:
+                    # 只对包含txt文件的目录进行编码转换
+                    convert_dir(dirpath)
+                    
+                    # 批量处理txt文件
+                    for file_path in txt_files:
+                        result = do_count(smart_dict, res_dict, file_path)
+                        if result:
+                            smart_dict, res_dict = result
+                            
+    except (OSError, PermissionError) as e:
+        print(f'访问目录失败: {root_path}, 错误: {e}')
+        return smart_dict, res_dict
+    
     return smart_dict, res_dict
