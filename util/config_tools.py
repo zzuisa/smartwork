@@ -20,13 +20,15 @@ class Config:
     @lru_cache(maxsize=32)
     def reader(cls, instance_name=None):
         """
-        配置读取器 - 缓存优化版本
+        配置读取器 - 优化版本，保持原始配置值
         @param instance_name: 与config.ini文件中的[section]对应
         @return 以dict的格式返回该section
         """
         # 使用类级别的缓存，避免重复读取配置文件
         if cls._config_cache is None:
             cls._config_cache = configparser.ConfigParser()
+            # 保持原始大小写
+            cls._config_cache.optionxform = str
             cls._config_cache.read(cls._config_file, encoding='utf-8')
         
         if instance_name:

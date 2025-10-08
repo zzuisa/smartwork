@@ -64,12 +64,12 @@ def get_headers():
 
 HEADER, INFO_HEADER = get_headers()
 
-# 国家映射 - 从配置文件读取
-@lru_cache(maxsize=1)
+# 国家映射 - 从配置文件读取，不使用缓存保持原始大小写
 def get_country_map():
-    """缓存国家映射配置"""
+    """获取国家映射配置，不使用缓存保持原始大小写"""
     config = _load_config()
-    return dict(config['country-mapping'])
+    country_mapping = config['country-mapping']
+    return {k.upper(): v for k, v in country_mapping.items()}
 
 COUNTRY_MAP = get_country_map()
 
